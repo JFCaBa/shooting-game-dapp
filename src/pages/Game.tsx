@@ -1,16 +1,11 @@
-// src/pages/Game.tsx
-// Route: /game
-// Main game page component that handles the shooting mechanics and player interactions
-
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useGameContext } from '../context/GameContext';
+import Camera from '../components/game/Camera';
 import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
 import ShootButton from '../components/game/ShootButton';
 import NavigationMenu from '../components/navigation/NavigationMenu';
 import { useLocationContext } from '../context/LocationContext';
-
-// src/pages/Game.tsx
 
 export const Game = () => {
   const { 
@@ -31,9 +26,11 @@ export const Game = () => {
   };
 
   return (
-    <div className="relative h-screen w-full bg-black overflow-hidden">
-      <div className="h-full w-full relative">
-        <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-50">
+    <div className="relative h-screen w-full overflow-hidden">
+      <Camera />
+      
+      <div className="relative h-full w-full">
+        <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-50 z-10">
           <StatusBar 
             ammo={currentAmmo} 
             maxAmmo={maxAmmo}
@@ -42,11 +39,11 @@ export const Game = () => {
           />
         </div>
 
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
           <Crosshair />
         </div>
 
-        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2">
+        <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
           <ShootButton 
             isReloading={isReloading}
             currentAmmo={currentAmmo}
@@ -55,7 +52,7 @@ export const Game = () => {
         </div>
 
         {isReloading && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-6xl">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-6xl z-30">
             Reloading...
           </div>
         )}
