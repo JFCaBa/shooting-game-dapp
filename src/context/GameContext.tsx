@@ -63,6 +63,7 @@ const RESPAWN_TIME = 60000; // 60 seconds
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
+  const [gameStarted, setGameStarted] = useState(false);
   const webSocketService = WebSocketService.getInstance();
 
   useEffect(() => {
@@ -73,10 +74,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.playerId]);
 
   useEffect(() => {
-    if (state.playerId) {
+    if (state.playerId && !gameStarted) {
       startGame();
+      setGameStarted(true);
     }
-  }, [state.playerId]);
+  }, [state.playerId, gameStarted]);
 
   const createPlayerData = (playerId: string): Player => {
     return {
@@ -116,10 +118,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleGameMessage = (message: GameMessage) => {
-    if (message.type === 'websocket_connected' as any) {
-      sendJoinMessage();
-      return;
-    }
+    // if (gameStarted === false) {
+    //   sendJoinMessage();
+    //   setGameStarted(true);
+    //   return;
+    // }
 
     switch (message.type) {
       // case MessageType.JOIN:

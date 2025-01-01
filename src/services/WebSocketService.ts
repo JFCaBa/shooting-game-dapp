@@ -1,7 +1,7 @@
 // src/services/WebSocketService.ts
 
 import { API_ENDPOINTS } from '../constants/endpoints';
-import { GameMessage, MessageType } from '../types/game';
+import { GameMessage } from '../types/game';
 
 type WebSocketCallback = (message: GameMessage) => void;
 
@@ -41,13 +41,10 @@ export class WebSocketService {
         console.log('WebSocket: Connection established');
         this.isConnected = true;
         this.reconnectAttempts = 0;
-        // this.startPingTimer();
+        this.startPingTimer();
         
         // Send join message
-        if (joinMessage) {
-          this.socket.send(JSON.stringify(joinMessage));
-          console.log('WebSocket: Sent join message', joinMessage);
-        }
+        this.socket.send(JSON.stringify(joinMessage));
         
         // Notify any listeners that connection is established
         this.callbacks.forEach(callback => callback({
