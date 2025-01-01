@@ -6,7 +6,7 @@ import { LocationData } from '../types/game';
 export class LocationService {
   private static instance: LocationService;
 
-  private constructor() {}
+  constructor() {}
 
   static getInstance(): LocationService {
     if (!LocationService.instance) {
@@ -55,4 +55,24 @@ export class LocationService {
   public toDegrees(radians: number): number {
     return radians * 180 / Math.PI;
   }
+
+  getCurrentLocation(): Promise<LocationData> {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            altitude: position.coords.altitude || 0,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          reject(error);
+        }
+      );
+    });
+  }
 }
+
+export const locationService = new LocationService();

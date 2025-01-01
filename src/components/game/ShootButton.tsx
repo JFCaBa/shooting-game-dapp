@@ -1,7 +1,7 @@
 // src/components/game/ShootButton.tsx
 // No route - Game component
 // Shoot button with animations and feedback
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import { useLocationContext } from '../../context/LocationContext';
 
@@ -14,8 +14,18 @@ interface ShootButtonProps {
 const ShootButton: React.FC<ShootButtonProps> = ({ isReloading, currentAmmo, onShoot }) => {
   const { shoot } = useGameContext();
   const { location, heading } = useLocationContext();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/assets/shoot_sound.wav');
+    audioRef.current.load();
+  }, []);
 
   const handleShoot = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0; // Reset the audio to the start
+      audioRef.current.play();
+    }
     shoot(location, heading);
   };
 
