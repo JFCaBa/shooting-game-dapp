@@ -1,7 +1,7 @@
-// require('dotenv').config();
+// src/constants/endpoints.ts
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'https://api.shooting-game.com';
-const WS_URL = process.env.REACT_APP_WS_URL || 'wss://api.shooting-game.com';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8182';
 
 export const API_ENDPOINTS = {
   // Player related endpoints
@@ -13,6 +13,8 @@ export const API_ENDPOINTS = {
   HALL_OF_FAME: `${BASE_URL}/api/v1/halloffame/kills`,
   AD_REWARD: `${BASE_URL}/api/v1/players/adReward`,
   
-  // WebSocket endpoint
-  WEBSOCKET: WS_URL
+  // WebSocket endpoint with correct port
+  WEBSOCKET: process.env.NODE_ENV === 'production' 
+    ? 'wss://api.shootingdapp.com:8182'
+    : WS_URL
 };

@@ -22,20 +22,22 @@ const Map = () => {
   });
 
   useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCenter({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
+    // Fetch and update players periodically
+    const fetchPlayers = async () => {
+      try {
+        // Replace with your actual API call
+        const response = await fetch('/api/players');
+        const data = await response.json();
+        setPlayers(data);
+      } catch (error) {
+        console.error('Error fetching players:', error);
+      }
+    };
+  
+    fetchPlayers();
+    const interval = setInterval(fetchPlayers, 5000); // Update every 5 seconds
+  
+    return () => clearInterval(interval);
   }, []);
 
   if (!isLoaded) return <div>Loading...</div>;

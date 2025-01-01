@@ -105,10 +105,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
+    // Cleanup function when component unmounts
     return () => {
       stopWatching();
     };
-  }, []);
+  }, [stopWatching]);
 
   const value: LocationContextType = {
     ...state,

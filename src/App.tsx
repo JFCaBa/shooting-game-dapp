@@ -9,8 +9,8 @@ import { Game }  from './pages/Game';
 import Map from './pages/Map';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
-
-type Screen = 'game' | 'map' | 'achievements' | 'wallet' | 'settings';
+import { Screen } from './types/navigation';
+import ShootButton from './components/game/ShootButton';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('game');
@@ -54,6 +54,13 @@ const App = () => {
           {showComingSoon && (
             <ComingSoon onClose={() => setShowComingSoon(false)} />
           )}
+
+          {/* Shoot Button */}
+          <ShootButton 
+            isReloading={false} 
+            currentAmmo={30} 
+            onShoot={() => console.log('Shoot!')} 
+          />
         </div>
       </GameProvider>
     </LocationProvider>

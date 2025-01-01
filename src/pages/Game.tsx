@@ -43,8 +43,8 @@ export const Game = () => {
           <Crosshair />
         </div>
 
-        <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
-          <ShootButton 
+        <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 z-20">
+          <ShootButton
             isReloading={isReloading}
             currentAmmo={currentAmmo}
             onShoot={handleShoot}

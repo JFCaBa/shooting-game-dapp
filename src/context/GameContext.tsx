@@ -1,6 +1,4 @@
 // src/context/GameContext.tsx
-// No route - Context provider
-// Manages global game state and WebSocket connections
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { WebSocketService } from '../services/WebSocketService';
@@ -51,7 +49,101 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState(prev => ({ ...prev, playerId: generateTemporaryId() }));
     }
     return () => webSocketService.disconnect();
-  }, []);
+  }, [state.playerId, webSocketService]);
+
+  const shoot = (location: LocationData, heading: number) => {
+    if (!state.isAlive || state.isReloading || state.currentAmmo <= 0 || !state.playerId) {
+      return;
+    }
+
+    // Update ammunition state first
+    setState(prev => {
+      const newAmmo = Math.max(0, prev.currentAmmo - 1);
+
+      // Start reload if out of ammo
+      if (newAmmo <= 0) {
+        reload();
+      }
+
+      return {
+        ...prev,
+        currentAmmo: newAmmo
+      };
+    });
+
+    // Send WebSocket message
+    const shootData: ShootData = {
+      damage: 1,
+      distance: 0,
+      deviation: 0,
+      heading,
+      location
+    };
+
+    const message: GameMessage = {
+      type: MessageType.SHOOT,
+      playerId: state.playerId,
+      data: { shoot: shootData }
+    };
+
+    webSocketService.send(message);
+  };
+
+  const reload = () => {
+    if (!state.isReloading) {
+      setState(prev => ({ ...prev, isReloading: true }));
+      
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          currentAmmo: prev.maxAmmo,
+          isReloading: false
+        }));
+      }, RELOAD_TIME);
+    }
+  };
+
+  const updatePlayers = (message: GameMessage) => {
+    if (message.type === MessageType.JOIN && message.data.player) {
+      setState(prev => ({
+        ...prev,
+        players: [...prev.players, message.data.player!]
+      }));
+    } else if (message.type === MessageType.LEAVE) {
+      setState(prev => ({
+        ...prev,
+        players: prev.players.filter(p => p.id !== message.playerId)
+      }));
+    }
+  };
+
+  const handleHit = (damage: number) => {
+    if (!state.isAlive) return;
+
+    const newLives = state.currentLives - damage;
+    
+    setState(prev => ({
+      ...prev,
+      currentLives: newLives,
+      isAlive: newLives > 0
+    }));
+
+    if (newLives <= 0) {
+      respawnPlayer();
+    }
+  };
+
+  const respawnPlayer = () => {
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        currentLives: prev.maxLives,
+        currentAmmo: prev.maxAmmo,
+        isAlive: true,
+        isReloading: false
+      }));
+    }, RESPAWN_TIME);
+  };
 
   const handleGameMessage = (message: GameMessage) => {
     if (message.playerId === state.playerId) return;
@@ -89,91 +181,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatePlayers(message);
         break;
     }
-  };
-
-  const handleHit = (damage: number) => {
-    if (!state.isAlive) return;
-
-    const newLives = state.currentLives - damage;
-    
-    setState(prev => ({
-      ...prev,
-      currentLives: newLives,
-      isAlive: newLives > 0
-    }));
-
-    if (newLives <= 0) {
-      respawnPlayer();
-    }
-  };
-
-  const respawnPlayer = () => {
-    setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        currentLives: prev.maxLives,
-        currentAmmo: prev.maxAmmo,
-        isAlive: true,
-        isReloading: false
-      }));
-    }, RESPAWN_TIME);
-  };
-
-  const updatePlayers = (message: GameMessage) => {
-    if (message.type === MessageType.JOIN && message.data.player) {
-      setState(prev => ({
-        ...prev,
-        players: [...prev.players, message.data.player!]
-      }));
-    } else if (message.type === MessageType.LEAVE) {
-      setState(prev => ({
-        ...prev,
-        players: prev.players.filter(p => p.id !== message.playerId)
-      }));
-    }
-  };
-
-  const shoot = (location: LocationData, heading: number) => {
-    if (!state.isAlive || state.isReloading || state.currentAmmo <= 0 || !state.playerId) return;
-
-    const shootData: ShootData = {
-      damage: 1,
-      distance: 0,
-      deviation: 0,
-      heading,
-      location
-    };
-
-    const message: GameMessage = {
-      type: MessageType.SHOOT,
-      playerId: state.playerId,
-      data: { shoot: shootData }
-    };
-
-    webSocketService.send(message);
-
-    const newAmmo = state.currentAmmo - 1;
-    setState(prev => ({
-      ...prev,
-      currentAmmo: newAmmo,
-      isReloading: newAmmo <= 0
-    }));
-
-    if (newAmmo <= 0) {
-      reload();
-    }
-  };
-
-  const reload = () => {
-    setState(prev => ({ ...prev, isReloading: true }));
-
-    setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        currentAmmo: prev.maxAmmo,
-        isReloading: false
-      }));
-    }, RELOAD_TIME);
   };
 
   const startGame = () => {

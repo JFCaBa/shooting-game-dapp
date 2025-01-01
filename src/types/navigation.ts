@@ -1,7 +1,7 @@
 // src/types/navigation.ts
 // Navigation types for the application
 
-export type Screen = 'game' | 'map' | 'achievements' | 'wallet' | 'settings';
+export type Screen = 'inventory' | 'game' | 'map' | 'achievements' | 'wallet' | 'hallOfFame' |'settings';
 
 export interface NavigationItem {
   id: Screen;
