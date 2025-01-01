@@ -27,8 +27,8 @@ export class WebSocketService {
   }
 
   connect(joinMessage: any) {
-    if (this.isConnected) {
-      console.log('WebSocket: Already connected');
+    if (this.isConnected || (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING))) {
+      console.log('WebSocket: Already connected or connecting');
       return;
     }
 
@@ -41,11 +41,14 @@ export class WebSocketService {
         console.log('WebSocket: Connection established');
         this.isConnected = true;
         this.reconnectAttempts = 0;
-        this.startPingTimer();
+        // this.startPingTimer();
         
         // Send join message
-        this.socket.send(JSON.stringify(joinMessage));
-        console.log('WebSocket: Sent join message', joinMessage);
+        if (joinMessage) {
+          this.socket.send(JSON.stringify(joinMessage));
+          console.log('WebSocket: Sent join message', joinMessage);
+        }
+        
         // Notify any listeners that connection is established
         this.callbacks.forEach(callback => callback({
           type: 'websocket_connected',
@@ -66,11 +69,13 @@ export class WebSocketService {
 
       this.socket.onclose = (event) => {
         console.log('WebSocket: Connection closed', event.code, event.reason);
+        this.isConnected = false;
         this.handleDisconnect();
       };
 
       this.socket.onerror = (error) => {
         console.error('WebSocket: Error occurred', error);
+        this.isConnected = false;
         this.handleDisconnect();
       };
 
@@ -150,3 +155,5 @@ export class WebSocketService {
     }
   }
 }
+
+export const webSocketService = WebSocketService.getInstance();

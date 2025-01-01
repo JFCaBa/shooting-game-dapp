@@ -66,6 +66,10 @@ export type GameMessageData = {
   shoot?: ShootData;
   drone?: DroneData;
   geoObject?: GeoObject;
+  location?: LocationData;
+  playerId?: string;
+  kind?: string;
+  heading?: number;
 };
 
 export type GameMessage = {

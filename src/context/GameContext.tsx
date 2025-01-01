@@ -86,16 +86,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const sendJoinMessage = () => {
+  const sendJoinMessage = async () => {
     if (!state.playerId) return;
     
     console.log('Sending join message');
     const player = createPlayerData(state.playerId);
+    const location = await locationService.getCurrentLocation();
     
     const joinMessage: GameMessage = {
       type: MessageType.JOIN,
       playerId: state.playerId,
-      data: { player },
+      data: {
+            location: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              altitude: location.altitude || 0,
+              accuracy: location.accuracy,
+            },
+            playerId: state.playerId,
+            kind: 'player',
+            heading: 0, // Add default heading
+          },
       senderId: null,
       pushToken: null // We could implement push notifications later
     };
@@ -111,11 +122,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     switch (message.type) {
-      case MessageType.JOIN:
-        if (message.data.player) {
-          updatePlayerFromShootData(createShootDataFromPlayer(message.data.player));
-        }
-        break;
+      // case MessageType.JOIN:
+      //   if (message.data.player) {
+      //     updatePlayerFromShootData(createShootDataFromPlayer(message.data.player));
+      //   }
+      //   break;
 
       case MessageType.SHOOT:
         if (message.data.shoot && message.playerId !== state.playerId) {
