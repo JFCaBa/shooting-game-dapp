@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { GameProvider } from './context/GameContext';
 import { LocationProvider } from './context/LocationContext';
-import { Game }  from './pages/Game';
+import { Game } from './pages/Game';
 import Map from './pages/Map';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
@@ -43,7 +43,6 @@ const App = () => {
           <div className="flex-1 relative">
             {renderScreen()}
           </div>
-          
           {/* Navigation */}
           <NavigationMenu 
             currentScreen={currentScreen}
@@ -54,13 +53,6 @@ const App = () => {
           {showComingSoon && (
             <ComingSoon onClose={() => setShowComingSoon(false)} />
           )}
-
-          {/* Shoot Button */}
-          <ShootButton 
-            isReloading={false} 
-            currentAmmo={30} 
-            onShoot={() => console.log('Shoot!')} 
-          />
         </div>
       </GameProvider>
     </LocationProvider>

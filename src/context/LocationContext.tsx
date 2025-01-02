@@ -2,123 +2,48 @@
 // No route - Context provider
 // Manages player location tracking and updates
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LocationData } from '../types/game';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { LocationData } from '../services/LocationService';
 
-interface LocationState {
+interface LocationContextType {
   location: LocationData | null;
-  heading: number;
-  accuracy: number;
-  watching: boolean;
-  error: GeolocationPositionError | null;
-}
-
-interface LocationContextType extends LocationState {
-  startWatching: () => void;
-  stopWatching: () => void;
+  heading: number | null;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<LocationState>({
-    location: null,
-    heading: 0,
-    accuracy: 0,
-    watching: false,
-    error: null
-  });
+  const [location, setLocation] = useState<LocationData | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
-  const [watchId, setWatchId] = useState<number | null>(null);
-
-  const handlePositionUpdate = (position: GeolocationPosition) => {
-    setState(prev => ({
-      ...prev,
-      location: {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        altitude: position.coords.altitude || 0,
-        accuracy: position.coords.accuracy
-      },
-      accuracy: position.coords.accuracy,
-      error: null
-    }));
-  };
-
-  const handleError = (error: GeolocationPositionError) => {
-    setState(prev => ({ ...prev, error }));
-  };
-
-  const startWatching = () => {
-    if (!navigator.geolocation) {
-      setState(prev => ({
-        ...prev,
-        error: new GeolocationPositionError()
-      }));
-      return;
-    }
-
-    // Get initial position
-    navigator.geolocation.getCurrentPosition(handlePositionUpdate, handleError, {
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 0
+  const handlePositionUpdate = useCallback((position: GeolocationPosition) => {
+    setLocation({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      altitude: position.coords.altitude || 0,
+      accuracy: position.coords.accuracy
     });
-
-    // Start watching position
-    const id = navigator.geolocation.watchPosition(
-      handlePositionUpdate,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      }
-    );
-
-    setWatchId(id);
-    setState(prev => ({ ...prev, watching: true }));
-
-    // Setup device orientation if available
-    if (window.DeviceOrientationEvent) {
-      window.addEventListener('deviceorientationabsolute', handleOrientation);
-    }
-  };
-
-  const stopWatching = () => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
-    }
-    setState(prev => ({ ...prev, watching: false }));
-
-    // Remove orientation listener
-    if (window.DeviceOrientationEvent) {
-      window.removeEventListener('deviceorientationabsolute', handleOrientation);
-    }
-  };
-
-  const handleOrientation = (event: DeviceOrientationEvent) => {
-    if (event.absolute && event.alpha !== null) {
-      setState(prev => ({ ...prev, heading: event.alpha }));
-    }
-  };
+    setHeading(position.coords.heading || null);
+  }, []);
 
   useEffect(() => {
-    // Cleanup function when component unmounts
-    return () => {
-      stopWatching();
-    };
-  }, [stopWatching]);
+    if (navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        handlePositionUpdate,
+        (error) => console.error('Error watching position:', error)
+      );
+    }
 
-  const value: LocationContextType = {
-    ...state,
-    startWatching,
-    stopWatching
-  };
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [handlePositionUpdate]);
 
   return (
-    <LocationContext.Provider value={value}>
+    <LocationContext.Provider value={{ location, heading }}>
       {children}
     </LocationContext.Provider>
   );
@@ -126,7 +51,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export const useLocationContext = () => {
   const context = useContext(LocationContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useLocationContext must be used within a LocationProvider');
   }
   return context;

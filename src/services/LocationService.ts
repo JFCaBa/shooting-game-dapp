@@ -1,14 +1,19 @@
 // src/services/LocationService.ts
 // Handles location calculations and validations
 
-import { LocationData } from '../types/game';
+export interface LocationData {
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  accuracy: number;
+}
 
 export class LocationService {
   private static instance: LocationService;
 
-  constructor() {}
+  private constructor() {}
 
-  static getInstance(): LocationService {
+  public static getInstance(): LocationService {
     if (!LocationService.instance) {
       LocationService.instance = new LocationService();
     }
@@ -48,11 +53,11 @@ export class LocationService {
     return distance <= maxRange;
   }
 
-  public toRadians(degrees: number): number {
+  toRadians(degrees: number): number {
     return degrees * Math.PI / 180;
   }
 
-  public toDegrees(radians: number): number {
+  private toDegrees(radians: number): number {
     return radians * 180 / Math.PI;
   }
 
@@ -73,6 +78,23 @@ export class LocationService {
       );
     });
   }
+
+  getCurrentHeading(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          if (position.coords.heading !== null) {
+            resolve(position.coords.heading);
+          } else {
+            reject(new Error('Heading is not available'));
+          }
+        },
+        (error) => {
+          reject(error);
+        }
+      );
+    });
+  }
 }
 
-export const locationService = new LocationService();
+export const locationService = LocationService.getInstance();

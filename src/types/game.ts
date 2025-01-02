@@ -44,6 +44,7 @@ export type GameScore = {
 };
 
 export enum MessageType {
+  WEBSOCKET_CONNECTED = 'websocket_connected',
   JOIN = 'join',
   SHOOT = 'shoot',
   SHOOT_CONFIRMED = 'shootConfirmed',

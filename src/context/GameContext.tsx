@@ -1,7 +1,7 @@
 // src/context/GameContext.tsx
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { WebSocketService } from '../services/WebSocketService';
+import { webSocketService, WebSocketService } from '../services/WebSocketService';
 import { locationService } from '../services/LocationService';
 
 import { 
@@ -82,8 +82,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // MARK: - Game message handling
 
-  const handleGameMessage = (message: GameMessage) => {
-    console.log('Handle game message:', message);
+  const handleGameMessage = async (message: GameMessage) => {
+    if (message.type === MessageType.WEBSOCKET_CONNECTED) {
+      console.log('WebSocket connected:', message);
+      await sendJoinMessage(state);
+      return;
+    }
     switch (message.type) {
       case MessageType.SHOOT:
         if (message.data && message.playerId !== state.playerId) {
@@ -464,32 +468,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     webSocketService.send(message);
   };
 
-  const startGame = async () => {
-    try {
-      const location = await locationService.getCurrentLocation();
-      const joinMessage = {
-        playerId: state.playerId,
-        type: 'join',
-        data: {
-          location: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            altitude: location.altitude || 0,
-            accuracy: location.accuracy,
-          },
-          playerId: state.playerId,
-          kind: 'player',
-          heading: 0, // Add default heading
-        },
-        pushToken: state.pushToken, // Ensure pushToken is set in state
-    };
+  // MARK: - Game lifecycle
 
-      webSocketService.connect(joinMessage);
+  const startGame = async () => {
+      webSocketService.connect({});
       webSocketService.addMessageListener(handleGameMessage);
       setState(INITIAL_STATE);
-    } catch (error) {
-      console.error('Failed to get location:', error);
-    }
   };
 
   const endGame = () => {
@@ -542,5 +526,31 @@ const generateTemporaryId = () => {
   localStorage.setItem('playerId', newId);
   return newId;
 };
+
+const sendJoinMessage = async (state: GameState) => {
+    try {
+      const location = await locationService.getCurrentLocation();
+      const message = {
+        playerId: state.playerId,
+        type: MessageType.JOIN,
+        data: {
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            altitude: location.altitude || 0,
+            accuracy: location.accuracy,
+          },
+          playerId: state.playerId,
+          kind: 'player',
+          heading: 0, // Add default heading
+        },
+        pushToken: state.pushToken, // Ensure pushToken is set in state
+      } as GameMessage;
+      webSocketService.send(message);
+
+    } catch (error) {
+      console.error('Failed to get location:', error);
+    }
+  }
 
 export default GameContext;

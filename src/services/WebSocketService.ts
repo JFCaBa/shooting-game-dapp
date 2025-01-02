@@ -44,7 +44,9 @@ export class WebSocketService {
         this.startPingTimer();
         
         // Send join message
-        this.socket.send(JSON.stringify(joinMessage));
+        if (joinMessage) {
+          this.socket.send(JSON.stringify(joinMessage));
+        }
         
         // Notify any listeners that connection is established
         this.callbacks.forEach(callback => callback({
