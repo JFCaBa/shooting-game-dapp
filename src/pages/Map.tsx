@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css'; 
 import { locationService } from '../services/LocationService';
 
-mapboxgl.accessToken = process.env.MAP_BOX || 'pk.eyJ1IjoiY2l0aXBsbGFlMDYwbTJvbWtnMnZ2bzRxdiIsImEiOiJjaXRpcG8yYWwwMDFnM29wZGNrbzNtdGczIn0.X3fHP5QJFX9wQl4yyVglqQ';
+mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
 
-const containerStyle = {
+const containerStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
+  position: 'relative', // Ensure the map container is positioned relative to its parent
 };
 
 const Map = () => {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -20,6 +22,24 @@ const Map = () => {
         const location = await locationService.getCurrentLocation();
         const mapCenter = { lat: location.latitude, lng: location.longitude };
         setCenter(mapCenter);
+
+        // Initialize the map
+        if (mapContainerRef.current) {
+          const map = new mapboxgl.Map({
+            container: mapContainerRef.current,
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [mapCenter.lng, mapCenter.lat],
+            zoom: 12,
+          });
+
+          // Add navigation control (the +/- zoom buttons)
+          map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+          // Add a marker to show the user's location
+          new mapboxgl.Marker()
+            .setLngLat([mapCenter.lng, mapCenter.lat])
+            .addTo(map);
+        }
       } catch (error) {
         console.error("Error fetching location:", error);
       }
@@ -28,29 +48,7 @@ const Map = () => {
     fetchLocationAndInitMap();
   }, []);
 
-  useEffect(() => {
-    if (!center) return; // Prevent map initialization if center is not yet available
-
-    // Initialize the Mapbox map
-    const map = new mapboxgl.Map({
-      container: 'map', // The ID of the div where the map will be rendered
-      style: 'mapbox://styles/mapbox/streets-v11', // Map style (you can customize it)
-      center: [center.lng, center.lat], // Set the initial center
-      zoom: 15, // Set initial zoom level
-    });
-
-    // Add a marker for the current location
-    new mapboxgl.Marker()
-      .setLngLat([center.lng, center.lat])
-      .addTo(map);
-
-    // Cleanup on component unmount
-    return () => {
-      map.remove();
-    };
-  }, [center]); // Re-run the effect when center changes
-
-  return <div id="map" style={containerStyle}></div>;
+  return <div id="map" ref={mapContainerRef} style={containerStyle}></div>;
 };
 
 export default Map;
