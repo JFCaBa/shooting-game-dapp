@@ -59,7 +59,7 @@ export class WebSocketService {
           const message = JSON.parse(event.data) as GameMessage;
           this.callbacks.forEach(callback => callback(message));
         } catch (error) {
-          if (event.data == 'pong') {
+          if (event.data === 'pong') {
             console.log('WebSocket: Received pong');
             return;
           }

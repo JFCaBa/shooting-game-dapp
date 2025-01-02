@@ -19,4 +19,16 @@
   .status-bar {
     @apply h-2 rounded-full overflow-hidden bg-gray-700;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    /* Hide scrollbar for WebKit browsers */
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* Hide scrollbar for IE and Edge */
+    scrollbar-width: none;
+    /* Hide scrollbar for Firefox */
+  }
 }

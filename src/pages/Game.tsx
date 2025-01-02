@@ -57,11 +57,6 @@ export const Game = () => {
           </div>
         )}
       </div>
-
-      <NavigationMenu 
-        currentScreen="game"
-        onScreenChange={() => {}}
-      />
     </div>
   );
 };
