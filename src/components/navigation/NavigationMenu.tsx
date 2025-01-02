@@ -16,34 +16,26 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
     { id: 'map' as Screen, label: 'MAP' },
     { id: 'game' as Screen, label: 'GAME' },
     { id: 'achievements' as Screen, label: 'ACHIEVEMENTS' },
-    { id: 'hallOfFame' as Screen, label: 'HALL OF FAME' },
+    { id: 'hallOfFame' as Screen, label: 'HALLOFFAME' },
     { id: 'wallet' as Screen, label: 'WALLET' },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-80 z-10">
-      {/* Menu Labels */}
-      <div className="relative">
-        <div
-          ref={scrollRef}
-          className="flex overflow-x-auto py-2 px-4 no-scrollbar scrolling-touch"
-        >
-          <div className="flex space-x-4 min-w-min">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onScreenChange(item.id)}
-                className={`whitespace-nowrap text-sm ${
-                  currentScreen === item.id
-                    ? 'text-yellow-400'
-                    : 'text-white'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+    <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-80 z-10"> {/* Adjusted bottom position */}
+      <div
+        ref={scrollRef}
+        className="flex overflow-x-auto no-scrollbar"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {menuItems.map(item => (
+          <div
+            key={item.id}
+            className={`p-4 cursor-pointer ${currentScreen === item.id ? 'text-yellow-500' : 'text-white'}`}
+            onClick={() => onScreenChange(item.id)}
+          >
+            {item.label}
           </div>
-        </div>
+        ))}
       </div>
       <div className="flex items-center justify-end px-4 py-4">
         {/* Settings Button */}
