@@ -8,13 +8,13 @@ export type LocationData = {
 };
 
 export type Player = {
-  id: string;
+  playerId: string;
   location: LocationData;
   heading: number;
 };
 
 export type ShootData = {
-  id?: string;
+  playerId?: string;
   shotId?: string;
   hitPlayerId?: string;
   damage: number;
@@ -70,6 +70,10 @@ export type GameMessageData = {
   playerId?: string;
   kind?: string;
   heading?: number;
+  hitPlayerId?: string;
+  damage?: number;
+  distance?: number;
+  deviation?: number;
 };
 
 export type GameMessage = {

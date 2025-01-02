@@ -24,7 +24,7 @@ const PlayerAnnotation: React.FC<PlayerAnnotationProps> = ({ player, position })
         strokeWeight: 2,
         rotation: player.heading // Use player's heading for marker rotation
       }}
-      title={player.id}
+      title={player.playerId}
     />
   );
 };

@@ -55,7 +55,6 @@ export class WebSocketService {
       };
 
       this.socket.onmessage = (event) => {
-        console.log('WebSocket: Received message', event.data);
         try {
           const message = JSON.parse(event.data) as GameMessage;
           this.callbacks.forEach(callback => callback(message));

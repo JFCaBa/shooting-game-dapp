@@ -85,7 +85,7 @@ const Map = () => {
         {/* Other players */}
         {players.map((player) => (
           <PlayerAnnotation
-            key={player.id}
+            key={player.playerId}
             player={player}
             position={{
               lat: player.location.latitude,
