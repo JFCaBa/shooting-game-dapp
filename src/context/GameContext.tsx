@@ -215,7 +215,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Validate the shot based on location and heading
     const hitValidation = await validateHit(shootData.location!, shootData.heading);
-    const type = hitValidation.isValid ? MessageType.HIT : MessageType.SHOOT_CONFIRMED;
+    const type = hitValidation.isValid ? MessageType.HIT_CONFIRMED : MessageType.SHOOT_CONFIRMED;
 
     const hitMessage: GameMessage = {
       type: type,
