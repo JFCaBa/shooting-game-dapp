@@ -1,7 +1,6 @@
 {
   "short_name": "Shooting Game",
   "name": "Shooting Game DApp",
-  // A brief summary of what your game does
   "description": "A decentralized shooting game that lets you explore and compete on the blockchain!",
   
   "icons": [
@@ -28,15 +27,12 @@
     }
   ],
   
-  // Start and scope
   "start_url": ".",
   "scope": ".",
   
-  // Display + orientation
   "display": "standalone",
   "orientation": "landscape",
   
-  // Colors for UI
   "theme_color": "#000000",
   "background_color": "#ffffff"
 }
