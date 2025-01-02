@@ -1,101 +1,56 @@
-// src/pages/Map.tsx
-// Route: /map
-// Displays the game map with player locations
-
 import React, { useEffect, useState } from 'react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-import PlayerAnnotation from '../components/map/PlayerAnnotation';
-import { Player } from '../types/game';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css'; 
+import { locationService } from '../services/LocationService';
+
+mapboxgl.accessToken = process.env.MAP_BOX || 'pk.eyJ1IjoiY2l0aXBsbGFlMDYwbTJvbWtnMnZ2bzRxdiIsImEiOiJjaXRpcG8yYWwwMDFnM29wZGNrbzNtdGczIn0.X3fHP5QJFX9wQl4yyVglqQ';
 
 const containerStyle = {
   width: '100%',
-  height: '100vh'
+  height: '100%',
 };
 
 const Map = () => {
-  const [center, setCenter] = useState({ lat: 0, lng: 0 });
-  const [players, setPlayers] = useState<Player[]>([]);
-  
-  const { isLoaded } = useJsApiLoader({
-    id: 'shooting-game-map',
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ''
-  });
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    // Fetch and update players periodically
-    const fetchPlayers = async () => {
+    const fetchLocationAndInitMap = async () => {
       try {
-        // Replace with your actual API call
-        const response = await fetch('/api/players');
-        const data = await response.json();
-        setPlayers(data);
+        // Get the current location
+        const location = await locationService.getCurrentLocation();
+        const mapCenter = { lat: location.latitude, lng: location.longitude };
+        setCenter(mapCenter);
       } catch (error) {
-        console.error('Error fetching players:', error);
+        console.error("Error fetching location:", error);
       }
     };
-  
-    fetchPlayers();
-    const interval = setInterval(fetchPlayers, 5000); // Update every 5 seconds
-  
-    return () => clearInterval(interval);
+
+    fetchLocationAndInitMap();
   }, []);
 
-  if (!isLoaded) return <div>Loading...</div>;
+  useEffect(() => {
+    if (!center) return; // Prevent map initialization if center is not yet available
 
-  return (
-    <div className="h-screen w-full relative">
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={15}
-        options={{
-          disableDefaultUI: true,
-          styles: [
-            {
-              featureType: 'all',
-              elementType: 'labels.text.fill',
-              stylers: [{ color: '#ffffff' }]
-            },
-            {
-              featureType: 'all',
-              elementType: 'labels.text.stroke',
-              stylers: [{ color: '#000000' }, { lightness: 13 }]
-            },
-            {
-              featureType: 'water',
-              elementType: 'geometry',
-              stylers: [{ color: '#000000' }]
-            }
-          ]
-        }}
-      >
-        {/* Current player marker */}
-        <Marker
-          position={center}
-          icon={{
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#4CAF50',
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 2,
-          }}
-        />
+    // Initialize the Mapbox map
+    const map = new mapboxgl.Map({
+      container: 'map', // The ID of the div where the map will be rendered
+      style: 'mapbox://styles/mapbox/streets-v11', // Map style (you can customize it)
+      center: [center.lng, center.lat], // Set the initial center
+      zoom: 15, // Set initial zoom level
+    });
 
-        {/* Other players */}
-        {players.map((player) => (
-          <PlayerAnnotation
-            key={player.playerId}
-            player={player}
-            position={{
-              lat: player.location.latitude,
-              lng: player.location.longitude
-            }}
-          />
-        ))}
-      </GoogleMap>
-    </div>
-  );
+    // Add a marker for the current location
+    new mapboxgl.Marker()
+      .setLngLat([center.lng, center.lat])
+      .addTo(map);
+
+    // Cleanup on component unmount
+    return () => {
+      map.remove();
+    };
+  }, [center]); // Re-run the effect when center changes
+
+  return <div id="map" style={containerStyle}></div>;
 };
 
 export default Map;

@@ -59,6 +59,10 @@ export class WebSocketService {
           const message = JSON.parse(event.data) as GameMessage;
           this.callbacks.forEach(callback => callback(message));
         } catch (error) {
+          if (event.data == 'pong') {
+            console.log('WebSocket: Received pong');
+            return;
+          }
           console.error('WebSocket: Failed to parse message:', error);
         }
       };
@@ -147,7 +151,7 @@ export class WebSocketService {
   private sendPing() {
     if (this.socket && this.isConnected) {
       console.log('WebSocket: Sending ping');
-      // this.socket.send('ping');
+      this.socket.send('ping');
     }
   }
 }
