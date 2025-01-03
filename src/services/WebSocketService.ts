@@ -60,11 +60,13 @@ export class WebSocketService {
       this.startPingTimer();
 
       // Notify connection established
-      this.callbacks.forEach(callback => callback({
-        type: 'websocket_connected',
-        playerId: '',
-        data: {}
-      } as any));
+      this.callbacks.forEach((callback) =>
+        callback({
+          type: 'websocket_connected',
+          playerId: '',
+          data: {},
+        } as any)
+      );
     };
 
     this.socket.onmessage = (event) => {
@@ -73,14 +75,13 @@ export class WebSocketService {
           console.log('WebSocket: Received pong');
           return;
         }
-        
+
         const message = JSON.parse(event.data) as GameMessage;
-        this.callbacks.forEach(callback => callback(message));
+        this.callbacks.forEach((callback) => callback(message));
       } catch (error) {
         console.error('WebSocket: Failed to parse message:', error);
       }
     };
-
 
     this.socket.onerror = (error) => {
       console.error('WebSocket: Error occurred', error);
@@ -91,13 +92,13 @@ export class WebSocketService {
 
     this.socket.onclose = (event) => {
       if (this.cleanup) return;
-      
+
       console.log('[WebSocket] Closed:', event.code);
       this.handleDisconnect();
     };
   }
 
-    disconnect() {
+  disconnect() {
     this.cleanup = true;
     this.stopPingTimer();
     if (this.socket) {
@@ -118,8 +119,9 @@ export class WebSocketService {
       console.warn('WebSocket: Cannot send message - not connected', message);
       return;
     }
-    
+
     try {
+      console.log('WebSocket: Sending message:', message);
       this.socket.send(JSON.stringify(message));
     } catch (error) {
       console.error('WebSocket: Failed to send message:', error);
@@ -135,16 +137,23 @@ export class WebSocketService {
 
   removeMessageListener(callback: WebSocketCallback) {
     console.log('WebSocket: Removing message listener');
-    this.callbacks = this.callbacks.filter(cb => cb !== callback);
+    this.callbacks = this.callbacks.filter((cb) => cb !== callback);
   }
 
   private handleDisconnect() {
-    if (!this.isConnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
+    if (
+      !this.isConnecting &&
+      this.reconnectAttempts < this.maxReconnectAttempts
+    ) {
       this.reconnectAttempts++;
-      console.log(`WebSocket: Attempting to reconnect in ${this.reconnectDelay}ms (Attempt ${this.reconnectAttempts})`);
+      console.log(
+        `WebSocket: Attempting to reconnect in ${this.reconnectDelay}ms (Attempt ${this.reconnectAttempts})`
+      );
       setTimeout(() => this.connect(), this.reconnectDelay);
     } else {
-      console.log('WebSocket: Max reconnection attempts reached or already connecting');
+      console.log(
+        'WebSocket: Max reconnection attempts reached or already connecting'
+      );
     }
   }
 

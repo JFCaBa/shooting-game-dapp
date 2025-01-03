@@ -16,26 +16,29 @@ export const Game = () => {
     players,
     playerId,
     drones,
-    shoot
+    shoot,
   } = useGameContext();
   const { location, heading } = useLocationContext();
 
   const otherPlayers = React.useMemo(() => {
-    return players.filter(player => player.playerId !== playerId);
+    return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
 
-  const handleDroneHit = useCallback((droneId: string) => {
-    if (location) {
-      shoot(location, heading || 0);
-    }
-  }, [location, shoot]);
+  const handleDroneHit = useCallback(
+    (droneId: string) => {
+      if (location) {
+        shoot(location, heading || 0);
+      }
+    },
+    [location, shoot]
+  );
 
   React.useEffect(() => {
     console.log('Game component - Update:', {
       totalPlayers: players.length,
       otherPlayers: otherPlayers.length,
       currentPlayerId: playerId,
-      activeDrones: drones.length
+      activeDrones: drones.length,
     });
   }, [players, otherPlayers, playerId, drones]);
 
@@ -49,7 +52,7 @@ export const Game = () => {
       {/* AR Layer */}
       {location && (
         <div className="absolute inset-0">
-          <ARView 
+          <ARView
             players={otherPlayers}
             drones={drones}
             onDroneShoot={handleDroneHit}

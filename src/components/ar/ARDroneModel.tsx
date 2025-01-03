@@ -10,7 +10,11 @@ interface ARDroneModelProps {
   modelUrl: string;
 }
 
-const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) => {
+const ARDroneModel: React.FC<ARDroneModelProps> = ({
+  drone,
+  onHit,
+  modelUrl,
+}) => {
   const modelRef = useRef<THREE.Group>();
   const isDestroyedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -20,53 +24,57 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
 
   useEffect(() => {
     const initializeAR = async () => {
-    if (!containerRef.current) return;
+      if (!containerRef.current) return;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    containerRef.current.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      containerRef.current.appendChild(renderer.domElement);
 
-    const controls = new DeviceOrientationControls(camera);
-    controlsRef.current = controls;
+      const controls = new DeviceOrientationControls(camera);
+      controlsRef.current = controls;
 
-    const loader = new GLTFLoader();
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        const model = gltf.scene;
-        model.scale.copy(DRONE_SCALE);
-        model.position.copy(convertToVector3(drone.position));
+      const loader = new GLTFLoader();
+      loader.load(
+        modelUrl,
+        (gltf) => {
+          const model = gltf.scene;
+          model.scale.copy(DRONE_SCALE);
+          model.position.copy(convertToVector3(drone.position));
 
-        modelRef.current = model;
-        scene.add(model);
-        startAnimations();
-        // animate();
-      },
-      undefined,
-      (error) => {
-        console.error('Error loading drone model:', error);
-      }
-    );
+          modelRef.current = model;
+          scene.add(model);
+          startAnimations();
+          // animate();
+        },
+        undefined,
+        (error) => {
+          console.error('Error loading drone model:', error);
+        }
+      );
 
-    const animate = () => {
-      requestAnimationFrame(animate);
-      const delta = clock.current.getDelta();
-      mixers.forEach((mixer) => mixer.update(delta));
-      controls.update();
-      renderer.render(scene, camera);
-    };
+      const animate = () => {
+        requestAnimationFrame(animate);
+        const delta = clock.current.getDelta();
+        mixers.forEach((mixer) => mixer.update(delta));
+        controls.update();
+        renderer.render(scene, camera);
+      };
 
-    return () => {
-      mixers.length = 0;
-      if (modelRef.current) {
-        stopAnimations();
-        modelRef.current.removeFromParent();
-      }
-      containerRef.current?.removeChild(renderer.domElement);
-    };
-
+      return () => {
+        mixers.length = 0;
+        if (modelRef.current) {
+          stopAnimations();
+          modelRef.current.removeFromParent();
+        }
+        containerRef.current?.removeChild(renderer.domElement);
+      };
     };
 
     initializeAR();
@@ -82,34 +90,38 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
         '.position[y]',
         [0, 1, 2],
         [drone.position.y, drone.position.y + 0.5, drone.position.y]
-      )
-    ]);
-    const circularRotationClip = new THREE.AnimationClip('circularRotation', 5, [
-      new THREE.VectorKeyframeTrack(
-        '.position[x]',
-        [0, 1, 2, 3, 4, 5],
-        [
-          drone.position.x,
-          drone.position.x + Math.cos(0) * 2,
-          drone.position.x + Math.cos(Math.PI / 2) * 2,
-          drone.position.x + Math.cos(Math.PI) * 2,
-          drone.position.x + Math.cos((3 * Math.PI) / 2) * 2,
-          drone.position.x + Math.cos(2 * Math.PI) * 2
-        ]
       ),
-      new THREE.VectorKeyframeTrack(
-        '.position[z]',
-        [0, 1, 2, 3, 4, 5],
-        [
-          drone.position.z,
-          drone.position.z + Math.sin(0) * 2,
-          drone.position.z + Math.sin(Math.PI / 2) * 2,
-          drone.position.z + Math.sin(Math.PI) * 2,
-          drone.position.z + Math.sin((3 * Math.PI) / 2) * 2,
-          drone.position.z + Math.sin(2 * Math.PI) * 2
-        ]
-      )
     ]);
+    const circularRotationClip = new THREE.AnimationClip(
+      'circularRotation',
+      5,
+      [
+        new THREE.VectorKeyframeTrack(
+          '.position[x]',
+          [0, 1, 2, 3, 4, 5],
+          [
+            drone.position.x,
+            drone.position.x + Math.cos(0) * 2,
+            drone.position.x + Math.cos(Math.PI / 2) * 2,
+            drone.position.x + Math.cos(Math.PI) * 2,
+            drone.position.x + Math.cos((3 * Math.PI) / 2) * 2,
+            drone.position.x + Math.cos(2 * Math.PI) * 2,
+          ]
+        ),
+        new THREE.VectorKeyframeTrack(
+          '.position[z]',
+          [0, 1, 2, 3, 4, 5],
+          [
+            drone.position.z,
+            drone.position.z + Math.sin(0) * 2,
+            drone.position.z + Math.sin(Math.PI / 2) * 2,
+            drone.position.z + Math.sin(Math.PI) * 2,
+            drone.position.z + Math.sin((3 * Math.PI) / 2) * 2,
+            drone.position.z + Math.sin(2 * Math.PI) * 2,
+          ]
+        ),
+      ]
+    );
     const hoverAction = hoverAnimation.clipAction(hoverClip);
     hoverAction.setLoop(THREE.LoopRepeat, Infinity);
     hoverAction.play();
@@ -139,12 +151,14 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
         '.rotation',
         [0, 1.5],
         [
-          0, 0, 0,
+          0,
+          0,
+          0,
           Math.random() * 4 - 2,
           Math.random() * 4 - 2,
-          Math.random() * 4 - 2
+          Math.random() * 4 - 2,
         ]
-      )
+      ),
     ]);
     const fallAction = fallAnimation.clipAction(fallClip);
     fallAction.setLoop(THREE.LoopOnce, 1);
