@@ -1,6 +1,4 @@
-// src/pages/Game.tsx
-
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
 import Camera from '../components/game/Camera';
@@ -9,31 +7,37 @@ import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
 
 export const Game = () => {
-  const { 
-    currentAmmo, 
+  const {
+    currentAmmo,
     maxAmmo,
-    isReloading, 
-    currentLives, 
+    isReloading,
+    currentLives,
     maxLives,
     players,
-    playerId
+    playerId,
+    drones,
+    shoot
   } = useGameContext();
-  
-  const { location } = useLocationContext();
+  const { location, heading } = useLocationContext();
 
-  // Filter out current player from the players list
   const otherPlayers = React.useMemo(() => {
     return players.filter(player => player.playerId !== playerId);
   }, [players, playerId]);
 
-  // Debug logging
+  const handleDroneHit = useCallback((droneId: string) => {
+    if (location) {
+      shoot(location, heading || 0);
+    }
+  }, [location, shoot]);
+
   React.useEffect(() => {
-    console.log('Game component - Players update:', {
+    console.log('Game component - Update:', {
       totalPlayers: players.length,
       otherPlayers: otherPlayers.length,
-      currentPlayerId: playerId
+      currentPlayerId: playerId,
+      activeDrones: drones.length
     });
-  }, [players, otherPlayers, playerId]);
+  }, [players, otherPlayers, playerId, drones]);
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
@@ -45,7 +49,11 @@ export const Game = () => {
       {/* AR Layer */}
       {location && (
         <div className="absolute inset-0">
-          <ARView players={otherPlayers} />
+          <ARView 
+            players={otherPlayers}
+            drones={drones}
+            onDroneShoot={handleDroneHit}
+          />
         </div>
       )}
 
@@ -53,19 +61,12 @@ export const Game = () => {
       <div className="absolute inset-0 pointer-events-none">
         {/* Status Bar */}
         <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-50 pointer-events-auto">
-          <StatusBar 
-            ammo={currentAmmo} 
+          <StatusBar
+            ammo={currentAmmo}
             maxAmmo={maxAmmo}
             lives={currentLives}
             maxLives={maxLives}
           />
-        </div>
-
-        {/* Debug Info */}
-        <div className="absolute top-20 left-4 text-white bg-black bg-opacity-50 p-2 rounded text-sm">
-          <div>Total Players: {players.length}</div>
-          <div>Other Players: {otherPlayers.length}</div>
-          <div>Player ID: {playerId?.slice(0, 8)}...</div>
         </div>
 
         {/* Crosshair */}

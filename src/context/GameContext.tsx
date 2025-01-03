@@ -16,6 +16,7 @@ import {
 
 interface GameState {
   players: Player[];
+  drones: DroneData[];
   gameScore: GameScore;
   playerId: string | null;
   isAlive: boolean;
@@ -42,6 +43,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const INITIAL_STATE: GameState = {
   players: [],
+  drones: [],
   gameScore: { hits: 0, kills: 0 },
   playerId: null,
   isAlive: true,
@@ -192,7 +194,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleHit(hitValidation.damage);
   }, [state.playerId, validateHit, handleHit]);
 
-  // MARK: - handleGameMessage
+  // MARK: - GameMessage
 
   const handleGameMessage = useCallback(async (message: GameMessage, wsInstance: WebSocketService) => {
     console.log('Received message:', message.type);
@@ -300,9 +302,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         break;
 
       case MessageType.NEW_DRONE:
-        if (message.data.drone && message.playerId === state.playerId) {
+        console.log('New drone:', message.data);
+        if (message.data && message.playerId === state.playerId) {
           resetDroneTimer();
-          notifyNewDrone(message.data.drone);
+          setState(prev => ({
+            ...prev,
+            drones: [
+              ...prev.drones.filter(p => p.droneId !== (message.data as DroneData).droneId),
+              message.data as DroneData
+            ]
+          }));
         }
         break;
 
@@ -344,7 +353,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const messageHandler = (message: GameMessage) => handleGameMessage(message, wsInstance);
     wsInstance.addMessageListener(messageHandler);
-    wsInstance.connect({}); // Start connection
+    wsInstance.connect(); // Start connection
 
     return () => {
       console.log('Cleaning up WebSocket connection');

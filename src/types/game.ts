@@ -1,5 +1,4 @@
 // src/types/game.ts
-
 export type LocationData = {
   latitude: number;
   longitude: number;
@@ -25,10 +24,14 @@ export type ShootData = {
 };
 
 export type DroneData = {
-  id: string;
-  location: LocationData;
-  targetLocation: LocationData;
-  timeoutSeconds: number;
+  droneId: string;
+  kind: string;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  reward?: number;
 };
 
 export type GeoObject = {
