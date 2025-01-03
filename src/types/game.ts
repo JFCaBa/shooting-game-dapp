@@ -19,7 +19,7 @@ export type ShootData = {
   hitPlayerId?: string;
   damage: number;
   distance: number;
-  deviation: number;
+  deviation?: number;
   heading: number;
   location?: LocationData;
 };

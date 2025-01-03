@@ -14,6 +14,7 @@ export class WebSocketService {
   private readonly reconnectDelay = 3000;
   private pingTimer: NodeJS.Timer | null = null;
   private callbacks: WebSocketCallback[] = [];
+  private isConnecting = false;
 
   private constructor() {
     // Private constructor for singleton
@@ -27,12 +28,18 @@ export class WebSocketService {
   }
 
   connect(joinMessage: any) {
-    if (this.isConnected || (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING))) {
+    if (this.isConnecting) {
+      console.log('WebSocket: Already attempting to connect');
+      return;
+    }
+
+    if (this.isConnected || (this.socket && this.socket.readyState !== WebSocket.CLOSED)) {
       console.log('WebSocket: Already connected or connecting');
       return;
     }
 
     console.log('WebSocket: Attempting to connect to', API_ENDPOINTS.WEBSOCKET);
+    this.isConnecting = true;
     
     try {
       this.socket = new WebSocket(API_ENDPOINTS.WEBSOCKET);
@@ -40,15 +47,15 @@ export class WebSocketService {
       this.socket.onopen = () => {
         console.log('WebSocket: Connection established');
         this.isConnected = true;
+        this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.startPingTimer();
         
-        // Send join message
         if (joinMessage) {
-          this.socket.send(JSON.stringify(joinMessage));
+          this.send(joinMessage);
         }
         
-        // Notify any listeners that connection is established
+        // Notify connection established
         this.callbacks.forEach(callback => callback({
           type: 'websocket_connected',
           playerId: '',
@@ -58,13 +65,14 @@ export class WebSocketService {
 
       this.socket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data) as GameMessage;
-          this.callbacks.forEach(callback => callback(message));
-        } catch (error) {
           if (event.data === 'pong') {
             console.log('WebSocket: Received pong');
             return;
           }
+          
+          const message = JSON.parse(event.data) as GameMessage;
+          this.callbacks.forEach(callback => callback(message));
+        } catch (error) {
           console.error('WebSocket: Failed to parse message:', error);
         }
       };
@@ -72,30 +80,38 @@ export class WebSocketService {
       this.socket.onclose = (event) => {
         console.log('WebSocket: Connection closed', event.code, event.reason);
         this.isConnected = false;
+        this.isConnecting = false;
         this.handleDisconnect();
       };
 
       this.socket.onerror = (error) => {
         console.error('WebSocket: Error occurred', error);
         this.isConnected = false;
+        this.isConnecting = false;
         this.handleDisconnect();
       };
 
-      return this.socket;
-
     } catch (error) {
       console.error('WebSocket: Failed to create connection:', error);
+      this.isConnecting = false;
     }
   }
 
   disconnect() {
     console.log('WebSocket: Disconnecting...');
-    if (this.socket) {
-      this.socket.close();
-    }
-    this.stopPingTimer();
     this.isConnected = false;
+    this.isConnecting = false;
     this.reconnectAttempts = 0;
+    this.stopPingTimer();
+    
+    if (this.socket) {
+      // Only close if the socket is not already closing or closed
+      if (this.socket.readyState !== WebSocket.CLOSING && 
+          this.socket.readyState !== WebSocket.CLOSED) {
+        this.socket.close();
+      }
+      this.socket = null;
+    }
   }
 
   send(message: GameMessage) {
@@ -105,7 +121,6 @@ export class WebSocketService {
     }
     
     try {
-      console.log('WebSocket: Sending message', message);
       this.socket.send(JSON.stringify(message));
     } catch (error) {
       console.error('WebSocket: Failed to send message:', error);
@@ -113,8 +128,10 @@ export class WebSocketService {
   }
 
   addMessageListener(callback: WebSocketCallback) {
-    console.log('WebSocket: Adding message listener');
-    this.callbacks.push(callback);
+    if (!this.callbacks.includes(callback)) {
+      console.log('WebSocket: Adding message listener');
+      this.callbacks.push(callback);
+    }
   }
 
   removeMessageListener(callback: WebSocketCallback) {
@@ -123,16 +140,12 @@ export class WebSocketService {
   }
 
   private handleDisconnect() {
-    console.log('WebSocket: Handling disconnect, attempt:', this.reconnectAttempts);
-    this.isConnected = false;
-    this.stopPingTimer();
-
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+    if (!this.isConnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`WebSocket: Attempting to reconnect in ${this.reconnectDelay}ms`);
+      console.log(`WebSocket: Attempting to reconnect in ${this.reconnectDelay}ms (Attempt ${this.reconnectAttempts})`);
       setTimeout(() => this.connect({}), this.reconnectDelay);
     } else {
-      console.log('WebSocket: Max reconnection attempts reached');
+      console.log('WebSocket: Max reconnection attempts reached or already connecting');
     }
   }
 

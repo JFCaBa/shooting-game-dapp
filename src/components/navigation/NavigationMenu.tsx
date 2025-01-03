@@ -1,7 +1,9 @@
-// src/components/navigation/NavigationMenu.tsx
 import React, { useRef } from 'react';
 import { FaCog } from 'react-icons/fa';
 import { Screen } from '../../types/navigation';
+import ShootButton from '../game/ShootButton';
+import { useGameContext } from '../../context/GameContext';
+import { useLocationContext } from '../../context/LocationContext';
 
 interface NavigationMenuProps {
   currentScreen: Screen;
@@ -10,6 +12,8 @@ interface NavigationMenuProps {
 
 const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreenChange }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { currentAmmo, isReloading, shoot } = useGameContext();
+  const { location, heading } = useLocationContext();
   
   const menuItems = [
     { id: 'inventory' as Screen, label: 'INVENTORY' },
@@ -20,8 +24,22 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
     { id: 'wallet' as Screen, label: 'WALLET' },
   ];
 
+  const handleShoot = () => {
+    if (!location || heading === null) {
+      console.error('Missing location or heading data');
+      return;
+    }
+
+    try {
+      shoot(location, heading);
+    } catch (error) {
+      console.error('Failed to shoot:', error);
+    }
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-80 z-10"> {/* Adjusted bottom position */}
+    <nav className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-80">
+      {/* Top row - Scrollable Menu */}
       <div
         ref={scrollRef}
         className="flex overflow-x-auto no-scrollbar"
@@ -37,16 +55,24 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-end px-4 py-4">
-        {/* Settings Button */}
+
+      {/* Bottom row - Action Buttons with safe area padding */}
+      <div className="flex justify-between items-center px-4 py-4 pb-safe mb-5">
+        <div className="w-12" /> {/* Empty space for radar (placeholder) */}
+        <ShootButton
+          isReloading={isReloading}
+          currentAmmo={currentAmmo}
+          onShoot={handleShoot}
+        />
         <button
           onClick={() => onScreenChange('settings')}
-          className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center"
+          className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center"
         >
           <FaCog className="text-white text-xl" />
         </button>
       </div>
-    </div>
+    </nav>
+    
   );
 };
 

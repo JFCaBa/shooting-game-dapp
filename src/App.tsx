@@ -1,7 +1,3 @@
-// src/App.tsx
-// Main application component
-// Route: /
-
 import React, { useState } from 'react';
 import { GameProvider } from './context/GameContext';
 import { LocationProvider } from './context/LocationContext';
@@ -10,7 +6,6 @@ import Map from './pages/Map';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
-import ShootButton from './components/game/ShootButton';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('game');
@@ -43,6 +38,7 @@ const App = () => {
           <div className="flex-1 relative">
             {renderScreen()}
           </div>
+
           {/* Navigation */}
           <NavigationMenu 
             currentScreen={currentScreen}
