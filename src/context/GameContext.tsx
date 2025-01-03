@@ -355,14 +355,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     wsInstance.addMessageListener(messageHandler);
     wsInstance.connect(); // Start connection
 
-    return () => {
-      console.log('Cleaning up WebSocket connection');
-      if (wsInstanceRef.current) {
-        wsInstanceRef.current.removeMessageListener(messageHandler);
-        wsInstanceRef.current.disconnect();
-        wsInstanceRef.current = null;
-      }
-    };
+    // return () => {
+    //   console.log('Cleaning up WebSocket connection');
+    //   if (wsInstanceRef.current) {
+    //     wsInstanceRef.current.removeMessageListener(messageHandler);
+    //     wsInstanceRef.current.disconnect();
+    //     wsInstanceRef.current = null;
+    //   }
+    // };
   }, [state.playerId, handleGameMessage]);
 
   const reload = useCallback(() => {

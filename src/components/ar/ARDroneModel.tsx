@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DroneData, DroneType, convertToVector3, DRONE_SCALE } from '../../types/drone';
+import { DroneData, convertToVector3, DRONE_SCALE } from '../../types/drone';
+import { DeviceOrientationControls } from 'three-stdlib';
 
 interface ARDroneModelProps {
   drone: DroneData;
@@ -11,11 +12,14 @@ interface ARDroneModelProps {
 
 const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) => {
   const modelRef = useRef<THREE.Group>();
-  const rotorsRef = useRef<THREE.Object3D[]>([]);
   const isDestroyedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const clock = useRef<THREE.Clock>(new THREE.Clock());
+  const mixers: THREE.AnimationMixer[] = [];
+  const controlsRef = useRef<DeviceOrientationControls>();
 
   useEffect(() => {
+    const initializeAR = async () => {
     if (!containerRef.current) return;
 
     const scene = new THREE.Scene();
@@ -24,6 +28,9 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
 
+    const controls = new DeviceOrientationControls(camera);
+    controlsRef.current = controls;
+
     const loader = new GLTFLoader();
     loader.load(
       modelUrl,
@@ -31,17 +38,11 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
         const model = gltf.scene;
         model.scale.copy(DRONE_SCALE);
         model.position.copy(convertToVector3(drone.position));
-        
-        // Find rotors
-        const rotorNames = ['Rotor_F_R', 'Rotor_F_L', 'Rotor_R_R', 'Rotor_R_L'];
-        rotorsRef.current = rotorNames
-          .map(name => model.getObjectByName(name))
-          .filter(rotor => rotor) as THREE.Object3D[];
-        
+
         modelRef.current = model;
         scene.add(model);
         startAnimations();
-        animate();
+        // animate();
       },
       undefined,
       (error) => {
@@ -51,79 +52,73 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
 
     const animate = () => {
       requestAnimationFrame(animate);
+      const delta = clock.current.getDelta();
+      mixers.forEach((mixer) => mixer.update(delta));
+      controls.update();
       renderer.render(scene, camera);
     };
 
     return () => {
+      mixers.length = 0;
       if (modelRef.current) {
         stopAnimations();
         modelRef.current.removeFromParent();
       }
       containerRef.current?.removeChild(renderer.domElement);
     };
+
+    };
+
+    initializeAR();
   }, [modelUrl]);
 
   const startAnimations = () => {
     if (!modelRef.current) return;
 
-    // Rotor animation
-    rotorsRef.current.forEach(rotor => {
-      const rotateAnimation = new THREE.AnimationMixer(rotor);
-      const rotationClip = new THREE.AnimationClip('rotate', 1, [
-        new THREE.VectorKeyframeTrack(
-          '.rotation[z]',
-          [0, 1],
-          [0, Math.PI * 2]
-        )
-      ]);
-      
-      const action = rotateAnimation.clipAction(rotationClip);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.play();
-    });
-
-    // Hover animation
     const hoverAnimation = new THREE.AnimationMixer(modelRef.current);
+    mixers.push(hoverAnimation);
     const hoverClip = new THREE.AnimationClip('hover', 2, [
       new THREE.VectorKeyframeTrack(
         '.position[y]',
         [0, 1, 2],
-        [drone.position.y, drone.position.y + 0.05, drone.position.y]
+        [drone.position.y, drone.position.y + 0.5, drone.position.y]
       )
     ]);
-    
-    const hoverAction = hoverAnimation.clipAction(hoverClip);
-    hoverAction.setLoop(THREE.LoopRepeat, Infinity);
-    hoverAction.play();
-
-    // Circular movement
-    const radius = 4;
-    const moveAnimation = new THREE.AnimationMixer(modelRef.current);
-    const moveClip = new THREE.AnimationClip('move', 8, [
+    const circularRotationClip = new THREE.AnimationClip('circularRotation', 5, [
       new THREE.VectorKeyframeTrack(
-        '.position',
-        [0, 2, 4, 6, 8],
+        '.position[x]',
+        [0, 1, 2, 3, 4, 5],
         [
-          drone.position.x, drone.position.z, 0,
-          drone.position.x + radius, drone.position.z, 0,
-          drone.position.x, drone.position.z + radius, 0,
-          drone.position.x - radius, drone.position.z, 0,
-          drone.position.x, drone.position.z - radius, 0
+          drone.position.x,
+          drone.position.x + Math.cos(0) * 2,
+          drone.position.x + Math.cos(Math.PI / 2) * 2,
+          drone.position.x + Math.cos(Math.PI) * 2,
+          drone.position.x + Math.cos((3 * Math.PI) / 2) * 2,
+          drone.position.x + Math.cos(2 * Math.PI) * 2
+        ]
+      ),
+      new THREE.VectorKeyframeTrack(
+        '.position[z]',
+        [0, 1, 2, 3, 4, 5],
+        [
+          drone.position.z,
+          drone.position.z + Math.sin(0) * 2,
+          drone.position.z + Math.sin(Math.PI / 2) * 2,
+          drone.position.z + Math.sin(Math.PI) * 2,
+          drone.position.z + Math.sin((3 * Math.PI) / 2) * 2,
+          drone.position.z + Math.sin(2 * Math.PI) * 2
         ]
       )
     ]);
-    
-    const moveAction = moveAnimation.clipAction(moveClip);
-    moveAction.setLoop(THREE.LoopRepeat, Infinity);
-    moveAction.play();
+    const hoverAction = hoverAnimation.clipAction(hoverClip);
+    hoverAction.setLoop(THREE.LoopRepeat, Infinity);
+    hoverAction.play();
+    hoverAnimation.clipAction(circularRotationClip).play();
   };
 
   const stopAnimations = () => {
-    rotorsRef.current.forEach(rotor => {
-      if (rotor.userData.mixer) {
-        rotor.userData.mixer.stopAllAction();
-      }
-    });
+    mixers.forEach((mixer) => mixer.stopAllAction());
+    mixers.length = 0;
   };
 
   const handleHit = () => {
@@ -131,19 +126,9 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
     isDestroyedRef.current = true;
 
     stopAnimations();
-    
-    // Create explosion particle system
-    const particles = new THREE.Points(
-      new THREE.BufferGeometry(),
-      new THREE.PointsMaterial({
-        color: 0xffa500,
-        size: 0.02,
-        blending: THREE.AdditiveBlending
-      })
-    );
 
-    // Add falling animation
     const fallAnimation = new THREE.AnimationMixer(modelRef.current);
+    mixers.push(fallAnimation);
     const fallClip = new THREE.AnimationClip('fall', 1.5, [
       new THREE.VectorKeyframeTrack(
         '.position[y]',
@@ -161,13 +146,11 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
         ]
       )
     ]);
-    
     const fallAction = fallAnimation.clipAction(fallClip);
     fallAction.setLoop(THREE.LoopOnce, 1);
     fallAction.clampWhenFinished = true;
     fallAction.play();
 
-    // Notify parent
     if (onHit) {
       onHit(drone.droneId);
     }
@@ -175,7 +158,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({ drone, onHit, modelUrl }) =
     return true;
   };
 
-  return <div ref={containerRef} />; // Three.js renders directly to the canvas
+  return <div ref={containerRef} />;
 };
 
 export default ARDroneModel;
