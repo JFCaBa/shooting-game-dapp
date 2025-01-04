@@ -147,7 +147,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       renderer.render(scene, camera);
     };
     animate();
-  }, [drone.position, modelUrl, startAnimations, mixers]);
+  }, [drone.position, modelUrl, startAnimations, mixers, handleHit]);
 
   return <div ref={containerRef} />;
 };
