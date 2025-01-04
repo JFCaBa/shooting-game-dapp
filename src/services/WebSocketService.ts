@@ -8,7 +8,7 @@ type WebSocketCallback = (message: GameMessage) => void;
 export class WebSocketService {
   private static instance: WebSocketService;
   private socket: WebSocket | null = null;
-  private isConnected = false;
+  public isConnected = false;
   private isConnecting = false;
   private reconnectAttempts = 0;
   private cleanup = false;

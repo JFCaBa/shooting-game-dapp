@@ -10,11 +10,14 @@ interface NavigationMenuProps {
   onScreenChange: (screen: Screen) => void;
 }
 
-const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreenChange }) => {
+const NavigationMenu: React.FC<NavigationMenuProps> = ({
+  currentScreen,
+  onScreenChange,
+}) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { currentAmmo, isReloading, shoot } = useGameContext();
   const { location, heading } = useLocationContext();
-  
+
   const menuItems = [
     { id: 'inventory' as Screen, label: 'INVENTORY' },
     { id: 'map' as Screen, label: 'MAP' },
@@ -25,8 +28,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
   ];
 
   const handleShoot = () => {
-    if (!location || heading === null) {
-      console.error('Missing location or heading data');
+    if (!location) {
+      console.error('Missing location');
       return;
     }
 
@@ -45,10 +48,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
         className="flex overflow-x-auto no-scrollbar"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {menuItems.map(item => (
+        {menuItems.map((item) => (
           <div
             key={item.id}
-            className={`p-4 cursor-pointer ${currentScreen === item.id ? 'text-yellow-500' : 'text-white'}`}
+            className={`p-4 cursor-pointer ${
+              currentScreen === item.id ? 'text-yellow-500' : 'text-white'
+            }`}
             onClick={() => onScreenChange(item.id)}
           >
             {item.label}
@@ -72,7 +77,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({ currentScreen, onScreen
         </button>
       </div>
     </nav>
-    
   );
 };
 

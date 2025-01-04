@@ -65,37 +65,11 @@ export class LocationService {
     return (radians * 180) / Math.PI;
   }
 
-  // getCurrentLocation(): Promise<LocationData> {
-  //   console.log('Fetching location');
-  //   return new Promise((resolve, reject) => {
-  //     navigator.geolocation.getCurrentPosition(
-  //       (position) => {
-  //         resolve({
-  //           latitude: position.coords.latitude,
-  //           longitude: position.coords.longitude,
-  //           altitude: position.coords.altitude || 0,
-  //           accuracy: position.coords.accuracy,
-  //         });
-  //       },
-  //       (error) => {
-  //         reject(error);
-  //       }
-  //     );
-  //   });
-  // }
-
   getCurrentLocation(): Promise<LocationData> {
-    console.log('Getting current location...');
+    console.log('Fetching location');
     return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        console.error('Geolocation is not supported by this browser.');
-        reject(new Error('Geolocation is not supported by this browser.'));
-        return;
-      }
-
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('Position obtained:', position);
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -104,17 +78,43 @@ export class LocationService {
           });
         },
         (error) => {
-          console.error('Error getting position:', error);
           reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
         }
       );
     });
   }
+
+  // getCurrentLocation(): Promise<LocationData> {
+  //   console.log('Getting current location...');
+  //   return new Promise((resolve, reject) => {
+  //     if (!navigator.geolocation) {
+  //       console.error('Geolocation is not supported by this browser.');
+  //       reject(new Error('Geolocation is not supported by this browser.'));
+  //       return;
+  //     }
+
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         console.log('Position obtained:', position);
+  //         resolve({
+  //           latitude: position.coords.latitude,
+  //           longitude: position.coords.longitude,
+  //           altitude: position.coords.altitude || 0,
+  //           accuracy: position.coords.accuracy,
+  //         });
+  //       },
+  //       (error) => {
+  //         console.error('Error getting position:', error);
+  //         reject(error);
+  //       },
+  //       {
+  //         enableHighAccuracy: true,
+  //         timeout: 10000,
+  //         maximumAge: 0,
+  //       }
+  //     );
+  //   });
+  // }
 
   getCurrentHeading(): Promise<number> {
     return new Promise((resolve, reject) => {

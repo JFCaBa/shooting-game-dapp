@@ -5,6 +5,8 @@ import Camera from '../components/game/Camera';
 import ARView from '../components/ar/ARView';
 import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
+import GameStatus from '../components/game/GameStatus';
+import { WebSocketService } from '../services/WebSocketService';
 
 export const Game = () => {
   const {
@@ -16,6 +18,7 @@ export const Game = () => {
     players,
     playerId,
     drones,
+    gameScore,
     shoot,
   } = useGameContext();
   const { location, heading } = useLocationContext();
@@ -69,6 +72,14 @@ export const Game = () => {
             maxAmmo={maxAmmo}
             lives={currentLives}
             maxLives={maxLives}
+          />
+          {/* Game status */}
+          <GameStatus
+            droneCount={drones.length}
+            hits={gameScore.hits}
+            kills={gameScore.kills}
+            isOnline={navigator.onLine}
+            isWebSocketConnected={WebSocketService.getInstance().isConnected}
           />
         </div>
 
