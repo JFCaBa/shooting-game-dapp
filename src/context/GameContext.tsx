@@ -355,6 +355,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
         case MessageType.NEW_DRONE:
           console.log('New drone:', message.data);
+          if (state.drones.length > 0) {
+            console.log('Already on drone present, skipping...');
+            return;
+          }
           if (message.data && message.playerId === state.playerId) {
             resetDroneTimer();
             setState((prev) => ({
