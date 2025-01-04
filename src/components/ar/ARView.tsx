@@ -20,7 +20,7 @@ const ARView: React.FC<ARViewProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const sceneRef = useRef<THREE.Scene>();
   const cameraRef = useRef<THREE.PerspectiveCamera>();
-  const { location, heading } = useLocationContext();
+  const { heading } = useLocationContext();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -63,11 +63,11 @@ const ARView: React.FC<ARViewProps> = ({
     animate();
 
     // Cleanup
-    return () => {
-      if (containerRef.current && rendererRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
-      }
-    };
+    // return () => {
+    //   if (containerRef.current && rendererRef.current) {
+    //     containerRef.current.removeChild(rendererRef.current.domElement);
+    //   }
+    // };
   }, []);
 
   // Update camera rotation based on device heading

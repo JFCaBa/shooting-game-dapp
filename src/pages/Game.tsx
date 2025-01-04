@@ -33,7 +33,7 @@ export const Game = () => {
         shoot(location, heading || 0);
       }
     },
-    [location, shoot]
+    [location, heading, shoot]
   );
 
   React.useEffect(() => {
@@ -66,7 +66,7 @@ export const Game = () => {
       {/* UI Layer */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Status Bar */}
-        <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-50 pointer-events-auto">
+        <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-80 pointer-events-auto">
           <StatusBar
             ammo={currentAmmo}
             maxAmmo={maxAmmo}

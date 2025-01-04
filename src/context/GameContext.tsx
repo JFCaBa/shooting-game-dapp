@@ -1,4 +1,3 @@
-// src/context/GameContext.tsx
 import { useLocationContext } from '../context/LocationContext';
 import React, {
   createContext,
@@ -127,7 +126,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const validateHit = useCallback(
     async (shooterLocation: LocationData, shooterHeading: number) => {
       console.log('Validating hit:', shooterLocation, shooterHeading);
-      const { location } = useLocationContext();
 
       try {
         const playerLocation = location
@@ -166,7 +164,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         return { isValid: false, damage: 0, distance: 0, deviation: 0 };
       }
     },
-    []
+    [location]
   );
 
   // MARK: - Game logic
@@ -390,7 +388,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
       }
     },
-    [state, handleShot, resetDroneTimer, handleHit]
+    [state, location, handleShot, resetDroneTimer, handleHit]
   );
 
   useEffect(() => {
@@ -492,20 +490,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       reload,
     ]
   );
-
-  const notifyHitConfirmed = (damage: number) => {
-    document.dispatchEvent(
-      new CustomEvent('hitConfirmed', { detail: { damage } })
-    );
-  };
-
-  const notifyKill = (targetId: string) => {
-    document.dispatchEvent(new CustomEvent('kill', { detail: { targetId } }));
-  };
-
-  const notifyNewDrone = (droneData: DroneData) => {
-    document.dispatchEvent(new CustomEvent('newDrone', { detail: droneData }));
-  };
 
   const notifyNewGeoObject = (geoObjects: GeoObject[]) => {
     setState((prev) => ({

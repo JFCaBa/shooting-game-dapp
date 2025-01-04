@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DroneData, convertToVector3, DRONE_SCALE } from '../../types/drone';
+import { DroneData, convertToVector3 } from '../../types/drone';
 import { DeviceOrientationControls } from 'three-stdlib';
 
 interface ARDroneModelProps {
@@ -19,79 +19,25 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   const isDestroyedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const clock = useRef<THREE.Clock>(new THREE.Clock());
-  const mixers: THREE.AnimationMixer[] = [];
   const controlsRef = useRef<DeviceOrientationControls>();
 
-  useEffect(() => {
-    const initializeAR = async () => {
-      if (!containerRef.current) return;
+  // Move mixers to useMemo
+  const mixers = useMemo(() => [] as THREE.AnimationMixer[], []);
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(
-        75,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-      );
-      const renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      containerRef.current.appendChild(renderer.domElement);
-
-      const controls = new DeviceOrientationControls(camera);
-      controlsRef.current = controls;
-
-      const loader = new GLTFLoader();
-      loader.load(
-        modelUrl,
-        (gltf) => {
-          const model = gltf.scene;
-          model.scale.copy(DRONE_SCALE);
-          model.position.copy(convertToVector3(drone.position));
-
-          modelRef.current = model;
-          scene.add(model);
-          startAnimations();
-          // animate();
-        },
-        undefined,
-        (error) => {
-          console.error('Error loading drone model:', error);
-        }
-      );
-
-      const animate = () => {
-        requestAnimationFrame(animate);
-        const delta = clock.current.getDelta();
-        mixers.forEach((mixer) => mixer.update(delta));
-        controls.update();
-        renderer.render(scene, camera);
-      };
-
-      return () => {
-        mixers.length = 0;
-        if (modelRef.current) {
-          stopAnimations();
-          modelRef.current.removeFromParent();
-        }
-        containerRef.current?.removeChild(renderer.domElement);
-      };
-    };
-
-    initializeAR();
-  }, [modelUrl]);
-
-  const startAnimations = () => {
+  const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
     const hoverAnimation = new THREE.AnimationMixer(modelRef.current);
     mixers.push(hoverAnimation);
+
     const hoverClip = new THREE.AnimationClip('hover', 2, [
       new THREE.VectorKeyframeTrack(
         '.position[y]',
         [0, 1, 2],
-        [drone.position.y, drone.position.y + 0.5, drone.position.y]
+        [drone.position.y, drone.position.y + 0.1, drone.position.y]
       ),
     ]);
+
     const circularRotationClip = new THREE.AnimationClip(
       'circularRotation',
       5,
@@ -122,18 +68,17 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         ),
       ]
     );
-    const hoverAction = hoverAnimation.clipAction(hoverClip);
-    hoverAction.setLoop(THREE.LoopRepeat, Infinity);
-    hoverAction.play();
-    hoverAnimation.clipAction(circularRotationClip).play();
-  };
 
-  const stopAnimations = () => {
+    hoverAnimation.clipAction(hoverClip).play();
+    hoverAnimation.clipAction(circularRotationClip).play();
+  }, [drone.position, mixers]);
+
+  const stopAnimations = useCallback(() => {
     mixers.forEach((mixer) => mixer.stopAllAction());
     mixers.length = 0;
-  };
+  }, [mixers]);
 
-  const handleHit = () => {
+  const handleHit = useCallback(() => {
     if (isDestroyedRef.current || !modelRef.current) return false;
     isDestroyedRef.current = true;
 
@@ -150,27 +95,59 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       new THREE.VectorKeyframeTrack(
         '.rotation',
         [0, 1.5],
-        [
-          0,
-          0,
-          0,
-          Math.random() * 4 - 2,
-          Math.random() * 4 - 2,
-          Math.random() * 4 - 2,
-        ]
+        [0, 0, 0, Math.PI / 2, Math.PI / 2, Math.PI / 2]
       ),
     ]);
-    const fallAction = fallAnimation.clipAction(fallClip);
-    fallAction.setLoop(THREE.LoopOnce, 1);
-    fallAction.clampWhenFinished = true;
-    fallAction.play();
 
-    if (onHit) {
-      onHit(drone.droneId);
-    }
+    fallAnimation.clipAction(fallClip).play();
+    onHit?.(drone.droneId);
 
     return true;
-  };
+  }, [mixers, stopAnimations, drone.droneId, onHit]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 1.6, 0);
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    containerRef.current.appendChild(renderer.domElement);
+
+    controlsRef.current = new DeviceOrientationControls(camera);
+
+    const loader = new GLTFLoader();
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        modelRef.current = gltf.scene;
+        const dronePosition = convertToVector3(drone.position);
+        modelRef.current.position.copy(dronePosition);
+        scene.add(modelRef.current);
+        startAnimations();
+      },
+      undefined,
+      (error) => console.error('Error loading drone model:', error)
+    );
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+      const delta = clock.current.getDelta();
+      mixers.forEach((mixer) => mixer.update(delta));
+      if (controlsRef.current) {
+        controlsRef.current.update();
+      }
+      renderer.render(scene, camera);
+    };
+    animate();
+  }, [drone.position, modelUrl, startAnimations, mixers]);
 
   return <div ref={containerRef} />;
 };

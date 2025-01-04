@@ -1,6 +1,3 @@
-// src/services/WebSocketService.ts
-
-import { API_ENDPOINTS } from '../constants/endpoints';
 import { GameMessage } from '../types/game';
 
 type WebSocketCallback = (message: GameMessage) => void;
