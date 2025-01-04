@@ -11,7 +11,11 @@ interface ARViewProps {
   onDroneShoot?: (droneId: string) => void;
 }
 
-const ARView: React.FC<ARViewProps> = ({ players, drones = [], onDroneShoot }) => {
+const ARView: React.FC<ARViewProps> = ({
+  players,
+  drones = [],
+  onDroneShoot,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const sceneRef = useRef<THREE.Scene>();
@@ -26,7 +30,10 @@ const ARView: React.FC<ARViewProps> = ({ players, drones = [], onDroneShoot }) =
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
-      75, window.innerWidth / window.innerHeight, 0.1, 1000
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
     );
     camera.position.z = 5;
     cameraRef.current = camera;
@@ -73,7 +80,7 @@ const ARView: React.FC<ARViewProps> = ({ players, drones = [], onDroneShoot }) =
   return (
     <div ref={containerRef} className="absolute inset-0">
       {/* Render drones */}
-      {drones.map(drone => (
+      {drones.map((drone) => (
         <ARDroneModel
           key={drone.droneId}
           drone={drone}
@@ -81,14 +88,21 @@ const ARView: React.FC<ARViewProps> = ({ players, drones = [], onDroneShoot }) =
           modelUrl="/models/drone.glb"
         />
       ))}
-      
+
       {/* Debug overlay */}
-      <div className="absolute top-20 right-4 bg-black bg-opacity-50 p-2 text-white text-sm">
+      {/* <div className="absolute top-20 right-4 bg-black bg-opacity-50 p-2 text-white text-sm">
         <div>Players: {players.length}</div>
         <div>Drones: {drones.length}</div>
         <div>Heading: {heading?.toFixed(1)}°</div>
-        <div>Location: {location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 'No location'}</div>
-      </div>
+        <div>
+          Location:{' '}
+          {location
+            ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(
+                6
+              )}`
+            : 'No location'}
+        </div>
+      </div> */}
     </div>
   );
 };

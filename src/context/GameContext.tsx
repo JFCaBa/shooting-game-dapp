@@ -1,5 +1,5 @@
 // src/context/GameContext.tsx
-
+import { useLocationContext } from '../context/LocationContext';
 import React, {
   createContext,
   useContext,
@@ -122,14 +122,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [, setGameStarted] = useState(false);
   const wsInstanceRef = useRef<WebSocketService | null>(null);
+  const { location, heading } = useLocationContext();
 
   const validateHit = useCallback(
     async (shooterLocation: LocationData, shooterHeading: number) => {
       console.log('Validating hit:', shooterLocation, shooterHeading);
       try {
-        const playerLocation = await locationService.getCurrentLocation();
-        console.log('Current Location:', playerLocation);
-
+        const playerLocation = location
+          ? location
+          : await locationService.getCurrentLocation();
         console.log('Player location:', playerLocation);
         if (!playerLocation) {
           return { isValid: false, damage: 0, distance: 0, deviation: 0 };
@@ -228,11 +229,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           distance: hitValidation.distance,
           deviation: hitValidation.deviation,
           heading: shootData.heading,
+          location: shootData.location,
           kind: 'shoot',
         },
       };
 
-      console.log('Sending shoot message:', shootMessage);
+      console.log('Sending shoot confirmation message:', shootMessage);
       wsInstance.send(shootMessage);
       handleHit(hitValidation.damage);
     },
@@ -248,7 +250,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       // When WebSocket connects, send join message
       if (message.type === MessageType.WEBSOCKET_CONNECTED) {
         try {
-          const location = await locationService.getCurrentLocation();
+          const playerLocation = location
+            ? location
+            : await locationService.getCurrentLocation();
           console.log('Location for join message:', location);
 
           const joinMessage: GameMessage = {
@@ -256,10 +260,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             playerId: state.playerId!,
             data: {
               location: {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                altitude: location.altitude,
-                accuracy: location.accuracy,
+                latitude: playerLocation.latitude,
+                longitude: playerLocation.longitude,
+                altitude: playerLocation.altitude,
+                accuracy: playerLocation.accuracy,
               },
               playerId: state.playerId,
               kind: 'player',
@@ -287,8 +291,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 player.playerId === message.playerId
                   ? {
                       ...player,
-                      location: message.data.shoot!.location!,
-                      heading: message.data.shoot!.heading,
+                      location: message.data.location!,
+                      heading: message.data.heading,
                     }
                   : player
               ),
@@ -303,20 +307,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
 
         case MessageType.HIT_CONFIRMED:
-          if (message.data.shoot && message.senderId === state.playerId) {
+          if (message.data && message.senderId === state.playerId) {
+            const damage = message.data.damage;
             setState((prev) => ({
               ...prev,
               gameScore: {
                 ...prev.gameScore,
-                hits: prev.gameScore.hits + 1,
+                hits: prev.gameScore.hits + damage,
               },
             }));
-            notifyHitConfirmed(message.data.shoot.damage);
           }
           break;
 
         case MessageType.KILL:
-          if (message.data.shoot && message.senderId === state.playerId) {
+          if (message.data && message.senderId === state.playerId) {
             setState((prev) => ({
               ...prev,
               gameScore: {
@@ -324,7 +328,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 kills: prev.gameScore.kills + 1,
               },
             }));
-            notifyKill(message.data.shoot.hitPlayerId || '');
           }
           break;
 
@@ -472,8 +475,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         data: shootData,
       };
 
-      wsInstance.send(message);
-      console.log('Shot fired:', shootData);
+      if (location) {
+        wsInstance.send(message);
+        console.log('Shoot fired:', shootData);
+      } else {
+        console.log('Shoot not fired, location not present');
+      }
     },
     [
       state.isAlive,
