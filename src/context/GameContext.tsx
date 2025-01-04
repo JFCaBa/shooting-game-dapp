@@ -122,11 +122,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [, setGameStarted] = useState(false);
   const wsInstanceRef = useRef<WebSocketService | null>(null);
-  const { location, heading } = useLocationContext();
+  const { location } = useLocationContext();
 
   const validateHit = useCallback(
     async (shooterLocation: LocationData, shooterHeading: number) => {
       console.log('Validating hit:', shooterLocation, shooterHeading);
+      const { location } = useLocationContext();
+
       try {
         const playerLocation = location
           ? location
