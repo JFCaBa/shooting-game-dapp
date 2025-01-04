@@ -1,22 +1,29 @@
 // src/context/GameContext.tsx
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { webSocketService, WebSocketService } from '../services/WebSocketService';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
+import { WebSocketService } from '../services/WebSocketService';
 import { locationService } from '../services/LocationService';
-
-import { 
-  GameMessage, 
-  Player, 
-  GameScore, 
-  MessageType, 
-  ShootData, 
+import {
+  GameMessage,
+  Player,
+  GameScore,
+  MessageType,
+  ShootData,
   LocationData,
   DroneData,
-  GeoObject 
+  GeoObject,
 } from '../types/game';
 
 interface GameState {
   players: Player[];
+  drones: DroneData[];
   gameScore: GameScore;
   playerId: string | null;
   isAlive: boolean;
@@ -27,9 +34,14 @@ interface GameState {
   isReloading: boolean;
   droneTimer: NodeJS.Timer | null;
   geoObjects: GeoObject[];
-  location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 }, // Add default location
-  heading: 0,
-  pushToken: null
+  location: {
+    latitude: number;
+    longitude: number;
+    altitude: number;
+    accuracy: number;
+  };
+  heading: number;
+  pushToken: null;
 }
 
 interface GameContextType extends GameState {
@@ -43,6 +55,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const INITIAL_STATE: GameState = {
   players: [],
+  drones: [],
   gameScore: { hits: 0, kills: 0 },
   playerId: null,
   isAlive: true,
@@ -53,293 +66,428 @@ const INITIAL_STATE: GameState = {
   isReloading: false,
   droneTimer: null,
   geoObjects: [],
-  location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 }, // Add default location
+  location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 },
   heading: 0,
-  pushToken: null
+  pushToken: null,
 };
 
-const RELOAD_TIME = 3000; // 3 seconds
-const RESPAWN_TIME = 60000; // 60 seconds
+const RELOAD_TIME = 3000;
+const RESPAWN_TIME = 60000;
 
-export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// MARK: -  Math utilities
+const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+const toDegrees = (radians: number): number => (radians * 180) / Math.PI;
+
+const calculateDistance = (from: LocationData, to: LocationData): number => {
+  const R = 6371e3;
+  const φ1 = toRadians(from.latitude);
+  const φ2 = toRadians(to.latitude);
+  const Δφ = toRadians(to.latitude - from.latitude);
+  const Δλ = toRadians(to.longitude - from.longitude);
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const calculateBearing = (from: LocationData, to: LocationData): number => {
+  const φ1 = toRadians(from.latitude);
+  const φ2 = toRadians(to.latitude);
+  const Δλ = toRadians(to.longitude - from.longitude);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  const θ = Math.atan2(y, x);
+  return (toDegrees(θ) + 360) % 360;
+};
+
+const calculateDamage = (
+  distance: number,
+  maxRange: number,
+  baseDamage: number
+): number => {
+  const damageFalloff = 1 - distance / maxRange;
+  return Math.max(baseDamage * damageFalloff, baseDamage);
+};
+
+// MARK: - Game Provider
+export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
-  const [gameStarted, setGameStarted] = useState(false);
-  const webSocketService = WebSocketService.getInstance();
+  const [, setGameStarted] = useState(false);
+  const wsInstanceRef = useRef<WebSocketService | null>(null);
 
-  useEffect(() => {
-    if (!state.playerId) {
-      const playerId = generateTemporaryId();
-      setState(prev => ({ ...prev, playerId }));
-    }
-  }, [state.playerId]);
+  const validateHit = useCallback(
+    async (shooterLocation: LocationData, shooterHeading: number) => {
+      console.log('Validating hit:', shooterLocation, shooterHeading);
+      try {
+        const playerLocation = await locationService.getCurrentLocation();
+        console.log('Current Location:', playerLocation);
 
-  useEffect(() => {
-    if (state.playerId && !gameStarted) {
-      startGame();
-      setGameStarted(true);
-    }
-  }, [state.playerId, gameStarted]);
-
-  // MARK: - Game message handling
-
-  const handleGameMessage = async (message: GameMessage) => {
-    if (message.type === MessageType.WEBSOCKET_CONNECTED) {
-      console.log('WebSocket connected:', message);
-      await sendJoinMessage(state);
-      return;
-    }
-    switch (message.type) {
-      case MessageType.SHOOT:
-        if (message.data && message.playerId !== state.playerId) {
-          console.log('Received shoot message:', message);
-          handleShot(message, message.data.shoot);
-          updatePlayerFromShootData(message.data.shoot);
+        console.log('Player location:', playerLocation);
+        if (!playerLocation) {
+          return { isValid: false, damage: 0, distance: 0, deviation: 0 };
         }
-        break;
 
-      case MessageType.SHOOT_CONFIRMED:
-        if (message.data.shoot) {
-          notifyShootConfirmed(message.data.shoot);
+        const MAX_RANGE = 500;
+        const MAX_ANGLE_ERROR = 30;
+        const BASE_DAMAGE = 1;
+
+        const distance = calculateDistance(shooterLocation, playerLocation);
+
+        if (distance > MAX_RANGE) {
+          return { isValid: false, damage: 0, distance, deviation: 0 };
         }
-        break;
 
-      case MessageType.HIT_CONFIRMED:
-        if (message.data.shoot && message.senderId === state.playerId) {
-          setState(prev => ({
-            ...prev,
-            gameScore: {
-              ...prev.gameScore,
-              hits: prev.gameScore.hits + 1
-            }
-          }));
-          notifyHitConfirmed(message.data.shoot.damage);
+        const actualBearing = calculateBearing(shooterLocation, playerLocation);
+        let angleDiff = Math.abs(shooterHeading - actualBearing);
+        if (angleDiff > 180) {
+          angleDiff = 360 - angleDiff;
         }
-        break;
 
-      case MessageType.KILL:
-        if (message.data.shoot && message.senderId === state.playerId) {
-          setState(prev => ({
-            ...prev,
-            gameScore: {
-              ...prev.gameScore,
-              kills: prev.gameScore.kills + 1
-            }
-          }));
-          notifyKill(message.data.shoot.hitPlayerId || '');
-        }
-        break;
+        const deviation = distance * Math.tan(toRadians(angleDiff));
+        const isValid = angleDiff <= MAX_ANGLE_ERROR;
+        const damage = isValid
+          ? calculateDamage(distance, MAX_RANGE, BASE_DAMAGE)
+          : 0;
 
-      case MessageType.LEAVE:
-        removePlayer(message.playerId);
-        break;
-
-      case MessageType.HIT:
-        if (message.data.shoot?.hitPlayerId === state.playerId) {
-          handleHit(message.data.shoot.damage);
-        }
-        break;
-
-      case MessageType.ANNOUNCED:
-        if (message.data.player && message.playerId !== state.playerId) {
-          updatePlayerFromShootData(createShootDataFromPlayer(message.data.player));
-        }
-        break;
-
-      case MessageType.NEW_DRONE:
-        if (message.data.drone && message.playerId === state.playerId) {
-          resetDroneTimer();
-          notifyNewDrone(message.data.drone);
-        }
-        break;
-
-      case MessageType.DRONE_SHOOT_CONFIRMED:
-        if (message.data.drone && message.playerId === state.playerId) {
-          if (state.droneTimer) {
-            clearInterval(state.droneTimer);
-          }
-          notifyDroneShootConfirmed(message.data.drone);
-        }
-        break;
-
-      case MessageType.NEW_GEO_OBJECT:
-        if (message.data.geoObject) {
-          notifyNewGeoObject([message.data.geoObject]);
-        }
-        break;
-
-      case MessageType.GEO_OBJECT_HIT:
-        if (message.data.geoObject) {
-          handleGeoObjectHit(message.data.geoObject);
-        }
-        break;
-
-      case MessageType.GEO_OBJECT_SHOOT_CONFIRMED:
-        if (message.data.geoObject) {
-          handleGeoObjectShootConfirmed(message.data.geoObject);
-        }
-        break;
-    }
-  };
-
-  // MARK: - Player management
-
-  const updatePlayerFromShootData = (shootData: ShootData) => {
-    setState(prev => ({
-      ...prev,
-      players: prev.players.map(p => 
-        p.playerId === shootData.playerId ? { ...p, location: shootData.location!, heading: shootData.heading } : p
-      )
-    }));
-  };
-
-  const createShootDataFromPlayer = (player: Player): ShootData => ({
-    playerId: player.playerId,
-    location: player.location,
-    heading: player.heading,
-    damage: 0,
-    distance: 0,
-    deviation: 0
-  });
-
-  const removePlayer = (playerId: string) => {
-    setState(prev => ({
-      ...prev,
-      players: prev.players.filter(p => p.playerId !== playerId)
-    }));
-  };
+        return { isValid, damage, distance, deviation };
+      } catch (error) {
+        console.error('Error fetching location:', error);
+        return { isValid: false, damage: 0, distance: 0, deviation: 0 };
+      }
+    },
+    []
+  );
 
   // MARK: - Game logic
+  const handleHit = useCallback((damage: number) => {
+    setState((prev) => {
+      const newLives = Math.max(0, prev.currentLives - damage);
+      if (newLives === 0) {
+        setTimeout(() => {
+          setState((prev) => ({
+            ...prev,
+            currentLives: prev.maxLives,
+            isAlive: true,
+          }));
+        }, RESPAWN_TIME);
+      }
+      return {
+        ...prev,
+        currentLives: newLives,
+        isAlive: newLives > 0,
+      };
+    });
+  }, []);
 
-  const handleShot = async (message: GameMessage, shootData: ShootData) => {
-    if (!shootData) {
-      shootData = message.data as ShootData;
-    }
-    
-    console.log('Handling shot:', shootData);
+  const resetDroneTimer = useCallback(() => {
+    setState((prev) => {
+      if (prev.droneTimer) {
+        clearInterval(prev.droneTimer);
+      }
+      const timer = setInterval(() => {
+        // Implement drone timeout logic
+      }, 30000);
+      return { ...prev, droneTimer: timer };
+    });
+  }, []);
 
-    // Validate the shot based on location and heading
-    const hitValidation = await validateHit(shootData.location!, shootData.heading);
-    const type = hitValidation.isValid ? MessageType.HIT_CONFIRMED : MessageType.SHOOT_CONFIRMED;
+  const handleShot = useCallback(
+    async (
+      message: GameMessage,
+      shootData: ShootData,
+      wsInstance: WebSocketService
+    ) => {
+      if (!shootData) {
+        shootData = message.data as ShootData;
+      }
 
-    const hitMessage: GameMessage = {
-      type: type,
-      playerId: state.playerId!,
-      senderId: shootData.hitPlayerId,
-      data: {
+      console.log('Handling shot:', shootData);
+      const hitValidation = await validateHit(
+        shootData.location!,
+        shootData.heading
+      );
+      const type = hitValidation.isValid
+        ? MessageType.HIT_CONFIRMED
+        : MessageType.SHOOT_CONFIRMED;
+
+      const shootMessage: GameMessage = {
+        type,
+        playerId: state.playerId!,
+        senderId: shootData.hitPlayerId,
+        data: {
           hitPlayerId: shootData.hitPlayerId,
           damage: hitValidation.damage,
           distance: hitValidation.distance,
           deviation: hitValidation.deviation,
           heading: shootData.heading,
           kind: 'shoot',
+        },
+      };
+
+      console.log('Sending shoot message:', shootMessage);
+      wsInstance.send(shootMessage);
+      handleHit(hitValidation.damage);
+    },
+    [state.playerId, validateHit, handleHit]
+  );
+
+  // MARK: - GameMessage
+
+  const handleGameMessage = useCallback(
+    async (message: GameMessage, wsInstance: WebSocketService) => {
+      console.log('Received message:', message.type);
+
+      // When WebSocket connects, send join message
+      if (message.type === MessageType.WEBSOCKET_CONNECTED) {
+        try {
+          const location = await locationService.getCurrentLocation();
+          console.log('Location for join message:', location);
+
+          const joinMessage: GameMessage = {
+            type: MessageType.JOIN,
+            playerId: state.playerId!,
+            data: {
+              location: {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                altitude: location.altitude,
+                accuracy: location.accuracy,
+              },
+              playerId: state.playerId,
+              kind: 'player',
+              heading: 0,
+            },
+            pushToken: null,
+          };
+
+          console.log('Sending join message:', joinMessage);
+          wsInstance.send(joinMessage);
+        } catch (error) {
+          console.error('Failed to send join message:', error);
+        }
+        return;
       }
-    };
-    
-    webSocketService.send(hitMessage);
-    
-    // Update player state based on hit
-    await handleHit(hitValidation.damage);
-  };
 
-  const validateHit = async (shooterLocation: LocationData, shooterHeading: number) => {
-    // Get current player location from state or location context
-    const playerLocation = await locationService.getCurrentLocation();
-    
-    if (!playerLocation) {
-      return { isValid: false, damage: 0, distance: 0, deviation: 0 };
+      switch (message.type) {
+        case MessageType.SHOOT:
+          console.log('Shot received:', message.data);
+          if (message.data && message.playerId !== state.playerId) {
+            await handleShot(message, message.data as ShootData, wsInstance);
+            setState((prev) => ({
+              ...prev,
+              players: prev.players.map((player) =>
+                player.playerId === message.playerId
+                  ? {
+                      ...player,
+                      location: message.data.shoot!.location!,
+                      heading: message.data.shoot!.heading,
+                    }
+                  : player
+              ),
+            }));
+          }
+          break;
+
+        case MessageType.HIT:
+          if (message.data.shoot?.hitPlayerId === state.playerId) {
+            handleHit(message.data.shoot.damage);
+          }
+          break;
+
+        case MessageType.HIT_CONFIRMED:
+          if (message.data.shoot && message.senderId === state.playerId) {
+            setState((prev) => ({
+              ...prev,
+              gameScore: {
+                ...prev.gameScore,
+                hits: prev.gameScore.hits + 1,
+              },
+            }));
+            notifyHitConfirmed(message.data.shoot.damage);
+          }
+          break;
+
+        case MessageType.KILL:
+          if (message.data.shoot && message.senderId === state.playerId) {
+            setState((prev) => ({
+              ...prev,
+              gameScore: {
+                ...prev.gameScore,
+                kills: prev.gameScore.kills + 1,
+              },
+            }));
+            notifyKill(message.data.shoot.hitPlayerId || '');
+          }
+          break;
+
+        case MessageType.LEAVE:
+          setState((prev) => ({
+            ...prev,
+            players: prev.players.filter(
+              (p) => p.playerId !== message.playerId
+            ),
+          }));
+          break;
+
+        case MessageType.ANNOUNCED:
+          console.log('Announcement:', message.data);
+          if (message.data && message.playerId !== state.playerId) {
+            setState((prev) => ({
+              ...prev,
+              players: [
+                ...prev.players.filter((p) => p.playerId !== message.playerId),
+                message.data as Player,
+              ],
+            }));
+          }
+          break;
+
+        case MessageType.NEW_DRONE:
+          console.log('New drone:', message.data);
+          if (message.data && message.playerId === state.playerId) {
+            resetDroneTimer();
+            setState((prev) => ({
+              ...prev,
+              drones: [
+                ...prev.drones.filter(
+                  (p) => p.droneId !== (message.data as DroneData).droneId
+                ),
+                message.data as DroneData,
+              ],
+            }));
+          }
+          break;
+
+        case MessageType.NEW_GEO_OBJECT:
+          if (message.data.geoObject) {
+            notifyNewGeoObject([message.data.geoObject]);
+          }
+          break;
+
+        case MessageType.GEO_OBJECT_HIT:
+          if (message.data.geoObject) {
+            handleGeoObjectHit(message.data.geoObject);
+          }
+          break;
+
+        case MessageType.GEO_OBJECT_SHOOT_CONFIRMED:
+          if (message.data.geoObject) {
+            handleGeoObjectShootConfirmed(message.data.geoObject);
+          }
+          break;
+      }
+    },
+    [state, handleShot, resetDroneTimer, handleHit]
+  );
+
+  useEffect(() => {
+    if (!state.playerId) {
+      const playerId = generateTemporaryId();
+      setState((prev) => ({ ...prev, playerId }));
+    }
+  }, [state.playerId]);
+
+  useEffect(() => {
+    if (!state.playerId || wsInstanceRef.current) {
+      return; // Don't proceed if we don't have playerId or already have a connection
     }
 
-    const MAX_RANGE = 500; // meters
-    const MAX_ANGLE_ERROR = 30; // degrees
-    const BASE_DAMAGE = 1;
+    console.log('Setting up WebSocket connection for player:', state.playerId);
+    const wsInstance = WebSocketService.getInstance();
+    wsInstanceRef.current = wsInstance;
 
-    // Calculate distance between shooter and target
-    const distance = calculateDistance(shooterLocation, playerLocation);
-    
-    // Check if target is in range
-    if (distance > MAX_RANGE) {
-      return { isValid: false, damage: 0, distance, deviation: 0 };
+    const messageHandler = (message: GameMessage) =>
+      handleGameMessage(message, wsInstance);
+    wsInstance.addMessageListener(messageHandler);
+    wsInstance.connect(); // Start connection
+
+    // return () => {
+    //   console.log('Cleaning up WebSocket connection');
+    //   if (wsInstanceRef.current) {
+    //     wsInstanceRef.current.removeMessageListener(messageHandler);
+    //     wsInstanceRef.current.disconnect();
+    //     wsInstanceRef.current = null;
+    //   }
+    // };
+  }, [state.playerId, handleGameMessage]);
+
+  const reload = useCallback(() => {
+    if (!state.isReloading) {
+      setState((prev) => ({ ...prev, isReloading: true }));
+
+      setTimeout(() => {
+        setState((prev) => ({
+          ...prev,
+          currentAmmo: prev.maxAmmo,
+          isReloading: false,
+        }));
+      }, RELOAD_TIME);
     }
+  }, [state.isReloading]);
 
-    // Calculate actual bearing to target
-    const actualBearing = calculateBearing(shooterLocation, playerLocation);
-    
-    // Calculate angle difference
-    let angleDiff = Math.abs(shooterHeading - actualBearing);
-    if (angleDiff > 180) {
-      angleDiff = 360 - angleDiff;
-    }
+  const shoot = useCallback(
+    (location: LocationData, heading: number) => {
+      if (
+        !state.isAlive ||
+        state.isReloading ||
+        state.currentAmmo <= 0 ||
+        !state.playerId
+      ) {
+        console.log('Shoot blocked:', {
+          isAlive: state.isAlive,
+          isReloading: state.isReloading,
+          currentAmmo: state.currentAmmo,
+        });
+        return;
+      }
 
-    // Calculate deviation in meters
-    const deviation = distance * Math.tan(toRadians(angleDiff));
+      setState((prev) => {
+        const newAmmo = Math.max(0, prev.currentAmmo - 1);
+        if (newAmmo <= 0) {
+          reload();
+        }
+        return { ...prev, currentAmmo: newAmmo };
+      });
 
-    // Validate hit based on angle difference
-    const isValid = angleDiff <= MAX_ANGLE_ERROR;
+      const wsInstance = WebSocketService.getInstance();
+      const shootData: ShootData = {
+        playerId: state.playerId,
+        location,
+        heading,
+        damage: 1,
+        distance: 0,
+      };
 
-    // Calculate damage based on distance (closer = more damage)
-    const damage = isValid ? calculateDamage(distance, MAX_RANGE, BASE_DAMAGE) : 0;
+      const message: GameMessage = {
+        type: MessageType.SHOOT,
+        playerId: state.playerId,
+        data: shootData,
+      };
 
-    return {
-      isValid,
-      damage,
-      distance,
-      deviation
-    };
-  };
-
-  // MARK: - Math and utility functions
-
-  const calculateDistance = (from: LocationData, to: LocationData): number => {
-    console.log('Calculating distance:', from, to);
-
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = toRadians(from.latitude);
-    const φ2 = toRadians(to.latitude);
-    const Δφ = toRadians(to.latitude - from.latitude);
-    const Δλ = toRadians(to.longitude - from.longitude);
-
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const calculateBearing = (from: LocationData, to: LocationData): number => {
-    const φ1 = toRadians(from.latitude);
-    const φ2 = toRadians(to.latitude);
-    const Δλ = toRadians(to.longitude - from.longitude);
-
-    const y = Math.sin(Δλ) * Math.cos(φ2);
-    const x = Math.cos(φ1) * Math.sin(φ2) -
-             Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-    
-    const θ = Math.atan2(y, x);
-    return (toDegrees(θ) + 360) % 360;
-  };
-
-  const toRadians = (degrees: number): number => {
-    return degrees * Math.PI / 180;
-  };
-
-  const toDegrees = (radians: number): number => {
-    return radians * 180 / Math.PI;
-  };
-
-  const calculateDamage = (distance: number, maxRange: number, baseDamage: number): number => {
-    const damageFalloff = 1 - (distance / maxRange);
-    return Math.max(baseDamage * damageFalloff, baseDamage);
-  };
-
-  // MARK: - Event notifications
-
-  const notifyShootConfirmed = (shootData: ShootData) => {
-    document.dispatchEvent(new CustomEvent('shootConfirmed', { detail: shootData }));
-  };
+      wsInstance.send(message);
+      console.log('Shot fired:', shootData);
+    },
+    [
+      state.isAlive,
+      state.isReloading,
+      state.currentAmmo,
+      state.playerId,
+      reload,
+    ]
+  );
 
   const notifyHitConfirmed = (damage: number) => {
-    document.dispatchEvent(new CustomEvent('hitConfirmed', { detail: { damage } }));
+    document.dispatchEvent(
+      new CustomEvent('hitConfirmed', { detail: { damage } })
+    );
   };
 
   const notifyKill = (targetId: string) => {
@@ -350,175 +498,49 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     document.dispatchEvent(new CustomEvent('newDrone', { detail: droneData }));
   };
 
-  const notifyDroneShootConfirmed = (droneData: DroneData) => {
-    document.dispatchEvent(new CustomEvent('droneShootConfirmed', { detail: droneData }));
-  };
-
   const notifyNewGeoObject = (geoObjects: GeoObject[]) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      geoObjects: [...prev.geoObjects, ...geoObjects]
+      geoObjects: [...prev.geoObjects, ...geoObjects],
     }));
   };
 
-  // MARK: - GeoObject event handlers
-
   const handleGeoObjectHit = (geoObject: GeoObject) => {
-    document.dispatchEvent(new CustomEvent('geoObjectHit', { detail: geoObject }));
+    document.dispatchEvent(
+      new CustomEvent('geoObjectHit', { detail: geoObject })
+    );
   };
 
   const handleGeoObjectShootConfirmed = (geoObject: GeoObject) => {
-    document.dispatchEvent(new CustomEvent('geoObjectShootConfirmed', { detail: geoObject }));
+    document.dispatchEvent(
+      new CustomEvent('geoObjectShootConfirmed', { detail: geoObject })
+    );
   };
 
-  // MARK: - Drone timer management
-
-  const resetDroneTimer = () => {
-    if (state.droneTimer) {
-      clearInterval(state.droneTimer);
-    }
-    const timer = setInterval(() => {
-      // Implement drone timeout logic
-    }, 30000); // 30 seconds timeout
-    setState(prev => ({ ...prev, droneTimer: timer }));
-  };
-
-  // MARK: - Game actions
-
-    const handleHit = (damage: number) => {
-    setState(prev => {
-      const newLives = prev.currentLives - damage;
-      const isAlive = newLives > 0;
-
-      if (!isAlive) {
-        // Equivalent to NotificationCenter.default.post(name: .playerDied)
-        document.dispatchEvent(new CustomEvent('playerDied'));
-        respawnPlayer();
-      }
-
-      return {
-        ...prev,
-        currentLives: newLives,
-        isAlive
-      };
-    });
-  };
-
-  const respawnPlayer = () => {
-    setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        currentLives: prev.maxLives,
-        currentAmmo: prev.maxAmmo,
-        isAlive: true,
-        isReloading: false
-      }));
-    }, RESPAWN_TIME);
-  };
-
-  const reload = () => {
-    if (!state.isReloading) {
-      setState(prev => ({ ...prev, isReloading: true }));
-      
-      setTimeout(() => {
-        setState(prev => ({
-          ...prev,
-          currentAmmo: prev.maxAmmo,
-          isReloading: false
-        }));
-      }, RELOAD_TIME);
-    }
-  };
-  
-  const shoot = (location: LocationData, heading: number) => {
-    if (!state.isAlive || state.isReloading || state.currentAmmo <= 0 || !state.playerId) {
-      return;
-    }
-
-    // Update ammunition state first
-    setState(prev => {
-      const newAmmo = Math.max(0, prev.currentAmmo - 1);
-
-      // Start reload if out of ammo
-      if (newAmmo <= 0) {
-        reload();
-      }
-
-      return {
-        ...prev,
-        currentAmmo: newAmmo
-      };
-    });
-
-    // Send WebSocket message
-    const shootData: ShootData = {
-      damage: 1,
-      distance: 0,
-      deviation: 0,
-      heading,
-      location
-    };
-
-    const message: GameMessage = {
-      type: MessageType.SHOOT,
-      playerId: state.playerId,
-      data: { shoot: shootData }
-    };
-
-    webSocketService.send(message);
-  };
-
-  // MARK: - Game lifecycle
-
-  const startGame = async () => {
-      webSocketService.connect({});
-      webSocketService.addMessageListener(handleGameMessage);
-      setState(INITIAL_STATE);
-  };
-
-  const endGame = () => {
-    webSocketService.disconnect();
-    setState(INITIAL_STATE);
-  };
-
-  const value: GameContextType = {
+  const value = {
     ...state,
     shoot,
     reload,
-    startGame,
-    endGame
+    startGame: () => setGameStarted(false),
+    endGame: () => setGameStarted(false),
   };
 
-  return (
-    <GameContext.Provider value={value}>
-      {children}
-    </GameContext.Provider>
-  );
-};
-
-export const useGameContext = () => {
-  const context = useContext(GameContext);
-  if (context === undefined) {
-    throw new Error('useGameContext must be used within a GameProvider');
-  }
-  return context;
+  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
 
 const generateTemporaryId = () => {
-  // Check if we already have a stored ID
   const storedId = localStorage.getItem('playerId');
   if (storedId) {
     return storedId;
   }
 
-  // Generate a new UUID-like identifier
   const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
       const random = (crypto.getRandomValues(new Uint8Array(1))[0] & 0xf) / 16;
       if (char === 'x') {
         return Math.floor(random * 16).toString(16);
       }
-      return (Math.floor(random * 16) & 0x3 | 0x8).toString(16); // Ensures correct variant
+      return ((Math.floor(random * 16) & 0x3) | 0x8).toString(16);
     });
   };
 
@@ -527,30 +549,13 @@ const generateTemporaryId = () => {
   return newId;
 };
 
-const sendJoinMessage = async (state: GameState) => {
-    try {
-      const location = await locationService.getCurrentLocation();
-      const message = {
-        playerId: state.playerId,
-        type: MessageType.JOIN,
-        data: {
-          location: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            altitude: location.altitude || 0,
-            accuracy: location.accuracy,
-          },
-          playerId: state.playerId,
-          kind: 'player',
-          heading: 0, // Add default heading
-        },
-        pushToken: state.pushToken, // Ensure pushToken is set in state
-      } as GameMessage;
-      webSocketService.send(message);
-
-    } catch (error) {
-      console.error('Failed to get location:', error);
-    }
+export const useGameContext = () => {
+  const context = useContext(GameContext);
+  if (!context) {
+    throw new Error('useGameContext must be used within a GameProvider');
   }
+  return context;
+};
 
-export default GameContext;
+// Export only GameContext as GameProvider is already exported
+export { GameContext };
