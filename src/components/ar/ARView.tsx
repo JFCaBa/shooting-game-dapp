@@ -1,25 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { DeviceOrientationControls } from 'three-stdlib';
 import { useLocationContext } from '../../context/LocationContext';
-import { Player } from '../../types/game';
 import { DroneData } from '../../types/drone';
 import ARDroneModel from './ARDroneModel';
 
 interface ARViewProps {
-  players: Player[];
   drones?: DroneData[];
   onDroneShoot?: (droneId: string) => void;
 }
 
-const ARView: React.FC<ARViewProps> = ({
-  players,
-  drones = [],
-  onDroneShoot,
-}) => {
+const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const sceneRef = useRef<THREE.Scene>();
   const cameraRef = useRef<THREE.PerspectiveCamera>();
+  const controlsRef = useRef<DeviceOrientationControls>();
+  const animationFrameIdRef = useRef<number>();
   const { heading } = useLocationContext();
 
   useEffect(() => {
@@ -35,7 +32,7 @@ const ARView: React.FC<ARViewProps> = ({
       0.1,
       1000
     );
-    camera.position.z = 5;
+    camera.position.set(0, 0, 0);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -44,30 +41,49 @@ const ARView: React.FC<ARViewProps> = ({
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Add ambient light
+    // Setup controls
+    controlsRef.current = new DeviceOrientationControls(camera);
+
+    // Add lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    // Add directional light
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 0);
     scene.add(directionalLight);
 
     // Animation loop
     const animate = () => {
-      requestAnimationFrame(animate);
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      animationFrameIdRef.current = requestAnimationFrame(animate);
+      if (controlsRef.current) {
+        controlsRef.current.update();
       }
+      renderer.render(scene, camera);
     };
     animate();
 
+    // Handle window resize
+    const handleResize = () => {
+      if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     // Cleanup
-    // return () => {
-    //   if (containerRef.current && rendererRef.current) {
-    //     containerRef.current.removeChild(rendererRef.current.domElement);
-    //   }
-    // };
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+      controlsRef.current?.disconnect();
+      if (containerRef.current && renderer.domElement) {
+        containerRef.current.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
+    };
   }, []);
 
   // Update camera rotation based on device heading
@@ -79,30 +95,16 @@ const ARView: React.FC<ARViewProps> = ({
 
   return (
     <div ref={containerRef} className="absolute inset-0">
-      {/* Render drones */}
-      {drones.map((drone) => (
-        <ARDroneModel
-          key={drone.droneId}
-          drone={drone}
-          onHit={onDroneShoot}
-          modelUrl="/models/drone.glb"
-        />
-      ))}
-
-      {/* Debug overlay */}
-      {/* <div className="absolute top-20 right-4 bg-black bg-opacity-50 p-2 text-white text-sm">
-        <div>Players: {players.length}</div>
-        <div>Drones: {drones.length}</div>
-        <div>Heading: {heading?.toFixed(1)}°</div>
-        <div>
-          Location:{' '}
-          {location
-            ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(
-                6
-              )}`
-            : 'No location'}
-        </div>
-      </div> */}
+      {sceneRef.current &&
+        drones.map((drone) => (
+          <ARDroneModel
+            key={drone.droneId}
+            drone={drone}
+            onHit={onDroneShoot}
+            modelUrl="/models/drone.glb"
+            scene={sceneRef.current}
+          />
+        ))}
     </div>
   );
 };

@@ -23,6 +23,7 @@ export const Game = () => {
   } = useGameContext();
   const { location, heading } = useLocationContext();
 
+  // Keep track of other players for debugging/monitoring
   const otherPlayers = React.useMemo(() => {
     return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
@@ -55,11 +56,7 @@ export const Game = () => {
       {/* AR Layer */}
       {location && (
         <div className="absolute inset-0">
-          <ARView
-            players={otherPlayers}
-            drones={drones}
-            onDroneShoot={handleDroneHit}
-          />
+          <ARView drones={drones} onDroneShoot={handleDroneHit} />
         </div>
       )}
 

@@ -27,4 +27,4 @@ export const convertToVector3 = (pos: Position3D): Vector3 => {
   return new Vector3(pos.x, pos.y, pos.z);
 };
 
-export const DRONE_SCALE = new Vector3(1, 1, 1);
+export const DRONE_SCALE = new Vector3(0.1, 0.1, 0.1);
