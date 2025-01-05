@@ -30,9 +30,25 @@ export const Game = () => {
 
   const handleDroneHit = useCallback(
     (droneId: string) => {
-      if (location) {
-        shoot(location, heading || 0);
+      console.log('Drone hit detected:', droneId);
+
+      if (!location) {
+        console.error('No location available for shot');
+        return;
       }
+
+      if (heading === null) {
+        console.error('No heading available for shot');
+        return;
+      }
+
+      console.log('Shooting with:', {
+        location,
+        heading,
+        droneId,
+      });
+
+      shoot(location, heading);
     },
     [location, heading, shoot]
   );

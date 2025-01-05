@@ -90,41 +90,46 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const mouse = useMemo(() => new THREE.Vector2(), []);
 
-  // Handle click/shoot
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       if (!sceneRef.current || !cameraRef.current) return;
 
-      // Use fixed position from crosshair instead of mouse position
-      mouse.x = 0; // Center X
-      mouse.y = 1 / 3; // Match the Crosshair position at top-1/3
+      // Calculate normalized device coordinates
+      // Crosshair is positioned at center horizontally and 1/3 from top
+      mouse.x = 0; // Center horizontally (-1 to +1)
+      mouse.y = 0.333; // 1/3 from top (-1 to +1)
 
-      // Update the picking ray with the camera and mouse position
       raycaster.setFromCamera(mouse, cameraRef.current);
 
-      // Calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(
-        sceneRef.current.children,
-        true
-      );
+      // Get all meshes in the scene
+      const meshes: THREE.Object3D[] = [];
+      sceneRef.current.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          meshes.push(object);
+        }
+      });
+
+      const intersects = raycaster.intersectObjects(meshes, true);
 
       if (intersects.length > 0) {
-        // Find the drone model that was hit
-        let hitObject = intersects[0].object;
-        while (hitObject.parent && !hitObject.userData.droneId) {
-          hitObject = hitObject.parent;
+        // Traverse up to find drone model
+        let currentObject: THREE.Object3D | null = intersects[0].object;
+        while (currentObject && !currentObject.userData.droneId) {
+          currentObject = currentObject.parent;
         }
 
-        if (hitObject.userData.droneId) {
-          onDroneShoot?.(hitObject.userData.droneId);
+        if (currentObject && currentObject.userData.droneId) {
+          console.log('Hit drone:', currentObject.userData.droneId);
+          onDroneShoot?.(currentObject.userData.droneId);
         }
+      } else {
+        console.log('No intersection found');
       }
     };
 
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [raycaster, mouse, onDroneShoot]);
-
   return (
     <div ref={containerRef} className="absolute inset-0">
       {sceneRef.current &&
