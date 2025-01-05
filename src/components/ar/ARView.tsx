@@ -92,44 +92,80 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
-      if (!sceneRef.current || !cameraRef.current) return;
+      if (!sceneRef.current || !cameraRef.current) {
+        console.log('Scene or camera reference is missing.');
+        return;
+      }
 
-      // Calculate normalized device coordinates
-      // Crosshair is positioned at center horizontally and 1/3 from top
-      mouse.x = 0; // Center horizontally (-1 to +1)
-      mouse.y = 0.333; // 1/3 from top (-1 to +1)
+      // Set mouse coordinates
+      mouse.x = 0;
+      mouse.y = 0.333;
 
+      console.log('Raycaster normalized device coordinates:', {
+        x: mouse.x,
+        y: mouse.y,
+      });
+
+      // Update the raycaster
       raycaster.setFromCamera(mouse, cameraRef.current);
+      console.log('Ray origin:', raycaster.ray.origin);
+      console.log('Ray direction:', raycaster.ray.direction);
 
-      // Get all meshes in the scene
       const meshes: THREE.Object3D[] = [];
       sceneRef.current.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          meshes.push(object);
+          if (object.name?.startsWith('BoundingBox_Drone_')) {
+            console.log('Bounding box detected:', {
+              name: object.name,
+              droneId: object.userData.droneId,
+            });
+            meshes.push(object);
+          }
         }
       });
 
+      console.log('Total meshes in scene:', meshes.length);
+
+      // Check for intersections
       const intersects = raycaster.intersectObjects(meshes, true);
+      console.log('Intersection results:', intersects);
 
       if (intersects.length > 0) {
-        // Traverse up to find drone model
         let currentObject: THREE.Object3D | null = intersects[0].object;
-        while (currentObject && !currentObject.userData.droneId) {
+        const pathToRoot = [];
+
+        // Traverse up to find a drone ID
+        while (currentObject) {
+          pathToRoot.push({
+            name: currentObject.name || 'Unnamed',
+            userData: currentObject.userData,
+          });
+          if (currentObject.userData.droneId) {
+            break;
+          }
           currentObject = currentObject.parent;
         }
 
+        console.log('Traversal path to root:', pathToRoot);
+
         if (currentObject && currentObject.userData.droneId) {
-          console.log('Hit drone:', currentObject.userData.droneId);
+          console.log('Hit detected on drone:', {
+            droneId: currentObject.userData.droneId,
+            position: currentObject.position,
+          });
           onDroneShoot?.(currentObject.userData.droneId);
+        } else {
+          console.log('No drone ID found in the hierarchy of the hit object.');
         }
       } else {
-        console.log('No intersection found');
+        console.log('No intersections found.');
       }
     };
 
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [raycaster, mouse, onDroneShoot]);
+
   return (
     <div ref={containerRef} className="absolute inset-0">
       {sceneRef.current &&
@@ -140,6 +176,7 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
             onHit={onDroneShoot}
             modelUrl="/models/drone.glb"
             scene={sceneRef.current}
+            camera={cameraRef.current}
           />
         ))}
     </div>
