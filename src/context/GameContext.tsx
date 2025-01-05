@@ -355,21 +355,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
         case MessageType.NEW_DRONE:
           console.log('New drone:', message.data);
-          if (state.drones.length > 0) {
-            console.log('Already on drone present, skipping...');
-            return;
-          }
+
           if (message.data && message.playerId === state.playerId) {
             resetDroneTimer();
-            setState((prev) => ({
-              ...prev,
-              drones: [
-                ...prev.drones.filter(
-                  (p) => p.droneId !== (message.data as DroneData).droneId
-                ),
+
+            setState((prev) => {
+              const existingDrones = prev.drones.filter(
+                (p) => p.droneId !== (message.data as DroneData).droneId
+              );
+
+              // Ensure the list does not exceed 5 drones
+              const updatedDrones = [
+                ...existingDrones,
                 message.data as DroneData,
-              ],
-            }));
+              ];
+              if (updatedDrones.length > 5) {
+                updatedDrones.shift(); // Remove the oldest drone
+              }
+
+              return {
+                ...prev,
+                drones: updatedDrones,
+              };
+            });
           }
           break;
 

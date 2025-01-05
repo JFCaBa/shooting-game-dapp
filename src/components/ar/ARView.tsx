@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { DeviceOrientationControls } from 'three-stdlib';
 import { useLocationContext } from '../../context/LocationContext';
 import { DroneData } from '../../types/drone';
 import ARDroneModel from './ARDroneModel';
+
+const RAY_LENGTH = 5; // Adjust based on your scene size
 
 interface ARViewProps {
   drones?: DroneData[];
@@ -86,85 +88,106 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
     };
   }, []);
 
-  // Add raycaster for hit detection
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
-  const mouse = useMemo(() => new THREE.Vector2(), []);
 
+  const checkHit = useCallback(() => {
+    if (!sceneRef.current || !cameraRef.current) {
+      console.log('Missing refs:', {
+        scene: !!sceneRef.current,
+        camera: !!cameraRef.current,
+      });
+      return;
+    }
+
+    // Use fixed crosshair position
+    const crosshair = new THREE.Vector2(0, 0.33);
+    console.log('Crosshair position:', crosshair);
+
+    // Update raycaster
+    raycaster.setFromCamera(crosshair, cameraRef.current);
+    console.log('Raycaster:', {
+      origin: raycaster.ray.origin,
+      direction: raycaster.ray.direction,
+    });
+
+    // Debug ray visualization
+    const rayHelper = new THREE.ArrowHelper(
+      raycaster.ray.direction,
+      raycaster.ray.origin,
+      20, // Increased length for better visibility
+      0xffff00,
+      1,
+      0.5
+    );
+    sceneRef.current.add(rayHelper);
+    console.log('Added ray helper to scene');
+
+    // Get all meshes with bounding boxes
+    const targetMeshes: THREE.Object3D[] = [];
+    const seenDroneIds = new Set<string>(); // Track seen drone IDs
+
+    sceneRef.current.traverse((object) => {
+      if (
+        object instanceof THREE.Mesh &&
+        object.name?.startsWith('BoundingBox_Drone_')
+      ) {
+        const droneId = object.userData.droneId;
+        if (!seenDroneIds.has(droneId)) {
+          seenDroneIds.add(droneId);
+          console.log('Processing bounding box:', {
+            name: object.name,
+            position: object.position,
+            worldPosition: object.getWorldPosition(new THREE.Vector3()),
+            scale: object.scale,
+            matrix: object.matrix,
+          });
+          targetMeshes.push(object);
+        }
+      }
+    });
+
+    console.log('Total unique target meshes found:', targetMeshes.length);
+
+    // Check intersections with original meshes (no cloning)
+    const intersects = raycaster.intersectObjects(targetMeshes, false);
+    console.log('Intersection results:', intersects);
+
+    if (intersects.length > 0) {
+      const hitObject = intersects[0].object;
+      const droneId = hitObject.userData.droneId;
+      if (droneId) {
+        console.log('Hit confirmed on drone:', droneId);
+        onDroneShoot?.(droneId);
+      }
+    } else {
+      console.log('No intersections found');
+    }
+
+    // Remove ray helper after delay
+    setTimeout(() => {
+      if (sceneRef.current) {
+        sceneRef.current.remove(rayHelper);
+        console.log('Removed ray helper');
+      }
+    }, 1000);
+  }, [raycaster, onDroneShoot]);
+
+  // Listen for gameShoot events
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (!sceneRef.current || !cameraRef.current) {
-        console.log('Scene or camera reference is missing.');
-        return;
-      }
+    console.log('ARView mounted, setting up gameShoot listener');
 
-      // Set mouse coordinates
-      mouse.x = 0;
-      mouse.y = 0.333;
-
-      console.log('Raycaster normalized device coordinates:', {
-        x: mouse.x,
-        y: mouse.y,
-      });
-
-      // Update the raycaster
-      raycaster.setFromCamera(mouse, cameraRef.current);
-      console.log('Ray origin:', raycaster.ray.origin);
-      console.log('Ray direction:', raycaster.ray.direction);
-
-      const meshes: THREE.Object3D[] = [];
-      sceneRef.current.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          if (object.name?.startsWith('BoundingBox_Drone_')) {
-            console.log('Bounding box detected:', {
-              name: object.name,
-              droneId: object.userData.droneId,
-            });
-            meshes.push(object);
-          }
-        }
-      });
-
-      console.log('Total meshes in scene:', meshes.length);
-
-      // Check for intersections
-      const intersects = raycaster.intersectObjects(meshes, true);
-      console.log('Intersection results:', intersects);
-
-      if (intersects.length > 0) {
-        let currentObject: THREE.Object3D | null = intersects[0].object;
-        const pathToRoot = [];
-
-        // Traverse up to find a drone ID
-        while (currentObject) {
-          pathToRoot.push({
-            name: currentObject.name || 'Unnamed',
-            userData: currentObject.userData,
-          });
-          if (currentObject.userData.droneId) {
-            break;
-          }
-          currentObject = currentObject.parent;
-        }
-
-        console.log('Traversal path to root:', pathToRoot);
-
-        if (currentObject && currentObject.userData.droneId) {
-          console.log('Hit detected on drone:', {
-            droneId: currentObject.userData.droneId,
-            position: currentObject.position,
-          });
-          onDroneShoot?.(currentObject.userData.droneId);
-        } else {
-          console.log('No drone ID found in the hierarchy of the hit object.');
-        }
-      } else {
-        console.log('No intersections found.');
-      }
+    const handleShoot = () => {
+      console.log('ARView: gameShoot event received');
+      checkHit();
     };
 
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, [raycaster, mouse, onDroneShoot]);
+    document.addEventListener('gameShoot', handleShoot);
+
+    return () => {
+      console.log('ARView unmounting, removing gameShoot listener');
+      document.removeEventListener('gameShoot', handleShoot);
+    };
+  }, [checkHit]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">

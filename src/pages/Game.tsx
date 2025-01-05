@@ -30,27 +30,12 @@ export const Game = () => {
 
   const handleDroneHit = useCallback(
     (droneId: string) => {
-      console.log('Drone hit detected:', droneId);
-
-      if (!location) {
-        console.error('No location available for shot');
-        return;
+      if (location) {
+        shoot(location, heading || 0);
+        // The shoot will be validated by the checkHit function in ARView
       }
-
-      if (heading === null) {
-        console.error('No heading available for shot');
-        return;
-      }
-
-      console.log('Shooting with:', {
-        location,
-        heading,
-        droneId,
-      });
-
-      shoot(location, heading);
     },
-    [location, heading, shoot]
+    [location, shoot]
   );
 
   React.useEffect(() => {

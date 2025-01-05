@@ -19,55 +19,56 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   camera,
 }) => {
   const modelRef = useRef<THREE.Group>();
-  const boundingBoxRef = useRef<THREE.Mesh>();
+  const boundingBoxesRef = useRef(new Map());
   const isDestroyedRef = useRef(false);
   const mixers = useMemo(() => [] as THREE.AnimationMixer[], []);
+  const animationFrameRef = useRef<number>();
   const clock = useRef(new THREE.Clock());
-  const raycaster = useMemo(() => new THREE.Raycaster(), []);
 
-  // MARK: - rotors animation
-  const initializeRotorAnimation = useCallback((rotor: THREE.Object3D) => {
-    // Calculate the rotor's geometry center
-    const box = new THREE.Box3().setFromObject(rotor);
-    const center = box.getCenter(new THREE.Vector3());
+  // MARK: - Animation Frame Handler
+  const animate = useCallback(() => {
+    const delta = clock.current.getDelta();
+    mixers.forEach((mixer) => mixer.update(delta));
+    animationFrameRef.current = requestAnimationFrame(animate);
+  }, [mixers]);
 
-    // Create a pivot point at the rotor's center
-    const pivot = new THREE.Object3D();
-    pivot.position.copy(center);
-    rotor.parent?.add(pivot);
+  // MARK: - Rotor Animation
+  const initializeRotorAnimation = useCallback(
+    (rotor: THREE.Object3D) => {
+      const box = new THREE.Box3().setFromObject(rotor);
+      const center = box.getCenter(new THREE.Vector3());
 
-    // Move the rotor to the pivot
-    rotor.position.sub(center);
-    pivot.add(rotor);
+      const pivot = new THREE.Object3D();
+      pivot.position.copy(center);
+      rotor.parent?.add(pivot);
 
-    // Create animation mixer for the pivot
-    const rotorMixer = new THREE.AnimationMixer(pivot);
-    mixers.push(rotorMixer);
+      rotor.position.sub(center);
+      pivot.add(rotor);
 
-    // Create rotation animation
-    const rotationTrack = new THREE.KeyframeTrack(
-      '.rotation[y]',
-      [0, 0.3], // Duration of 0.5 seconds
-      [0, Math.PI * 2] // Full rotation
-    );
+      const rotorMixer = new THREE.AnimationMixer(pivot);
+      mixers.push(rotorMixer);
 
-    const rotationClip = new THREE.AnimationClip(
-      `rotor_spin_${rotor.name}`,
-      0.3,
-      [rotationTrack]
-    );
+      const track = new THREE.KeyframeTrack(
+        '.rotation[y]',
+        [0, 0.3],
+        [0, Math.PI * 2]
+      );
 
-    const action = rotorMixer.clipAction(rotationClip);
-    action.setLoop(THREE.LoopRepeat, Infinity);
-    action.play();
-  }, []);
+      const clip = new THREE.AnimationClip(`rotor_spin_${rotor.name}`, 0.3, [
+        track,
+      ]);
+      const action = rotorMixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.play();
+    },
+    [mixers]
+  );
 
-  // MARK: - startAnimations
-
+  // MARK: - Start Animations
   const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
-    // Find and animate all rotors
+    // Initialize rotor animations
     const rotorNames = ['Rotor_F_R', 'Rotor_F_L', 'Rotor_R_R', 'Rotor_R_L'];
     modelRef.current.traverse((child) => {
       if (rotorNames.includes(child.name)) {
@@ -75,30 +76,28 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       }
     });
 
+    // Initialize main animations
     const mainMixer = new THREE.AnimationMixer(modelRef.current);
     mixers.push(mainMixer);
 
     const initialPosition = modelRef.current.position.clone();
 
     // Hover animation
-    const hoverDuration = 2;
-    const hoverHeight = 0.3;
-    const hoverClip = new THREE.AnimationClip('hover', hoverDuration, [
-      new THREE.VectorKeyframeTrack(
-        '.position[y]',
-        [0, hoverDuration / 2, hoverDuration],
-        [initialPosition.y, initialPosition.y + hoverHeight, initialPosition.y]
-      ),
-    ]);
-    mainMixer
-      .clipAction(hoverClip)
-      .setLoop(THREE.LoopPingPong, Infinity)
-      .play();
+    const hoverTrack = new THREE.VectorKeyframeTrack(
+      '.position[y]',
+      [0, 1, 2],
+      [initialPosition.y, initialPosition.y + 0.3, initialPosition.y]
+    );
 
-    // Circular patrol animation
-    const patrolDuration = 8;
+    const hoverClip = new THREE.AnimationClip('hover', 2, [hoverTrack]);
+    const hoverAction = mainMixer.clipAction(hoverClip);
+    hoverAction.setLoop(THREE.LoopPingPong, Infinity);
+    hoverAction.play();
+
+    // Patrol animation
     const patrolRadius = 5;
-    const patrolPoints = new Array(31).fill(0).map((_, i) => {
+    const patrolDuration = 8;
+    const patrolPoints = Array.from({ length: 31 }, (_, i) => {
       const angle = (i / 30) * Math.PI * 2;
       return {
         time: (i / 30) * patrolDuration,
@@ -107,89 +106,32 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       };
     });
 
+    const patrolXTrack = new THREE.KeyframeTrack(
+      '.position[x]',
+      patrolPoints.map((p) => p.time),
+      patrolPoints.map((p) => p.x)
+    );
+
+    const patrolZTrack = new THREE.KeyframeTrack(
+      '.position[z]',
+      patrolPoints.map((p) => p.time),
+      patrolPoints.map((p) => p.z)
+    );
+
     const patrolClip = new THREE.AnimationClip('patrol', patrolDuration, [
-      new THREE.KeyframeTrack(
-        '.position[x]',
-        patrolPoints.map((p) => p.time),
-        patrolPoints.map((p) => p.x)
-      ),
-      new THREE.KeyframeTrack(
-        '.position[z]',
-        patrolPoints.map((p) => p.time),
-        patrolPoints.map((p) => p.z)
-      ),
-    ]);
-    mainMixer.clipAction(patrolClip).setLoop(THREE.LoopRepeat, Infinity).play();
-  }, [mixers, initializeRotorAnimation]);
-
-  // MARK: - checkHit
-
-  const checkHit = useCallback(
-    (x: number, y: number) => {
-      if (!modelRef.current || isDestroyedRef.current) return false;
-
-      const mouse = new THREE.Vector2(
-        (x / window.innerWidth) * 2 - 1,
-        -(y / window.innerHeight) * 2 + 1
-      );
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(modelRef.current, true);
-
-      if (intersects.length > 0) {
-        handleHit();
-        return true;
-      }
-      return false;
-    },
-    [camera, raycaster]
-  );
-
-  // MARK: - handleHit
-
-  const handleHit = useCallback(() => {
-    if (isDestroyedRef.current || !modelRef.current) return false;
-    isDestroyedRef.current = true;
-
-    mixers.forEach((mixer) => mixer.stopAllAction());
-
-    const fallMixer = new THREE.AnimationMixer(modelRef.current);
-    mixers.push(fallMixer);
-
-    const fallDuration = 2;
-    const fallClip = new THREE.AnimationClip('fall', fallDuration, [
-      new THREE.VectorKeyframeTrack(
-        '.position[y]',
-        [0, fallDuration],
-        [modelRef.current.position.y, 0]
-      ),
-      new THREE.VectorKeyframeTrack(
-        '.rotation[x]',
-        [0, fallDuration],
-        [0, Math.PI * 2 * (Math.random() - 0.5)]
-      ),
-      new THREE.VectorKeyframeTrack(
-        '.rotation[z]',
-        [0, fallDuration],
-        [0, Math.PI * 2 * (Math.random() - 0.5)]
-      ),
+      patrolXTrack,
+      patrolZTrack,
     ]);
 
-    const fallAction = fallMixer.clipAction(fallClip);
-    fallAction.setLoop(THREE.LoopOnce, 1);
-    fallAction.clampWhenFinished = true;
-    fallAction.play();
+    const patrolAction = mainMixer.clipAction(patrolClip);
+    patrolAction.setLoop(THREE.LoopRepeat, Infinity);
+    patrolAction.play();
 
-    setTimeout(() => {
-      onHit?.(drone.droneId);
-      scene.remove(modelRef.current!);
-    }, fallDuration * 1000);
+    // Start animation loop
+    animate();
+  }, [mixers, initializeRotorAnimation, animate]);
 
-    return true;
-  }, [drone.droneId, mixers, onHit, scene]);
-
-  // MARK: - model loader
-
+  // MARK: - Model Loader
   useEffect(() => {
     const loader = new GLTFLoader();
 
@@ -197,88 +139,59 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       modelUrl,
       (gltf) => {
         const model = gltf.scene;
-
         const position = convertToVector3(drone.position);
-        model.position.copy(position);
 
+        model.position.copy(position);
         model.scale.copy(DRONE_SCALE);
         model.userData.droneId = drone.droneId;
 
-        const boundingBoxGeometry = new THREE.BoxGeometry(35, 15, 35);
+        // Bounding box setup
+        const boundingBoxGeometry = new THREE.BoxGeometry(35, 25, 45);
         const boundingBoxMaterial = new THREE.MeshBasicMaterial({
           color: 0xff0000,
           opacity: 0.2,
           transparent: true,
+          visible: true,
         });
 
         const boundingBox = new THREE.Mesh(
           boundingBoxGeometry,
           boundingBoxMaterial
         );
-        boundingBox.position.set(0, 0, 0); // Adjust position relative to the drone model
-        boundingBox.name = `BoundingBox_Drone_${drone.droneId}`; // Assign a unique name
-        boundingBox.userData.droneId = drone.droneId; // Attach the drone ID for identification
-
-        model.add(boundingBox); // Add to the drone model
-        boundingBoxRef.current = boundingBox; // Keep a reference
-
-        model.traverse((child) => {
-          child.userData.droneId = drone.droneId;
-          // Make sure each mesh can be hit by raycaster
-          if (child instanceof THREE.Mesh) {
-            child.userData.isTargetable = true;
-          }
-        });
+        boundingBox.name = `BoundingBox_Drone_${drone.droneId}`;
+        boundingBox.userData.droneId = drone.droneId;
+        model.add(boundingBox);
 
         modelRef.current = model;
         scene.add(model);
         startAnimations();
 
-        // Add click handler for this specific drone
-        const handleClick = (event: MouseEvent) => {
-          checkHit(event.clientX, event.clientY);
-        };
-        window.addEventListener('click', handleClick);
-
-        return () => window.removeEventListener('click', handleClick);
+        console.log('Drone model loaded:', {
+          droneId: drone.droneId,
+          position: model.position,
+          boundingBox: boundingBox.getWorldPosition(new THREE.Vector3()),
+        });
       },
       undefined,
       (error) => console.error('Error loading drone model:', error)
     );
 
-    const animate = () => {
-      const delta = clock.current.getDelta();
-      mixers.forEach((mixer) => mixer.update(delta));
-      return requestAnimationFrame(animate);
-    };
-
-    const animationId = animate();
     return () => {
-      cancelAnimationFrame(animationId);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
       mixers.forEach((mixer) => mixer.stopAllAction());
       if (modelRef.current) {
         scene.remove(modelRef.current);
       }
     };
-  }, [scene, modelUrl, drone.position, startAnimations, mixers, checkHit]);
+  }, [scene, modelUrl, drone.position, startAnimations, drone.droneId]);
 
+  // Update position when drone moves
   useEffect(() => {
     if (modelRef.current && !isDestroyedRef.current) {
       const position = convertToVector3(drone.position);
       modelRef.current.position.copy(position);
-    }
-  }, [drone.position]);
-
-  useEffect(() => {
-    if (modelRef.current) {
-      const boundingBox = new THREE.Box3().setFromObject(modelRef.current);
-      const boxHelper = modelRef.current.children.find(
-        (child) => child instanceof THREE.Box3Helper
-      ) as THREE.Box3Helper | undefined;
-
-      if (boxHelper) {
-        boxHelper.box.copy(boundingBox);
-      }
     }
   }, [drone.position]);
 
