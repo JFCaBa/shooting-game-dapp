@@ -1,3 +1,4 @@
+// src/pages/Game.tsx
 import React, { useCallback } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -7,6 +8,7 @@ import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
 import GameStatus from '../components/game/GameStatus';
 import { WebSocketService } from '../services/WebSocketService';
+import { MessageType } from '../types/game';
 
 export const Game = () => {
   const {
@@ -20,6 +22,7 @@ export const Game = () => {
     drones,
     gameScore,
     shoot,
+    updateGameScore,
   } = useGameContext();
   const { location, heading } = useLocationContext();
 
@@ -30,12 +33,38 @@ export const Game = () => {
 
   const handleDroneHit = useCallback(
     (droneId: string) => {
-      if (location) {
-        shoot(location, heading || 0);
-        // The shoot will be validated by the checkHit function in ARView
-      }
+      console.log('Drone hit:', droneId);
+
+      // Send WebSocket message for drone hit
+      const wsService = WebSocketService.getInstance();
+      wsService.send({
+        type: MessageType.SHOOT_DRONE,
+        playerId: playerId!,
+        data: {
+          drone: {
+            droneId: droneId,
+            position: {
+              x: 0,
+              y: 0,
+              z: 0,
+            },
+            kind: 'drone',
+          },
+          location: location,
+          heading: heading,
+        },
+      });
+
+      // Update local game score
+      updateGameScore({
+        type: 'DRONE_HIT',
+        droneId: droneId,
+      });
+
+      // Trigger shoot animation and sound
+      shoot(location, heading);
     },
-    [location, shoot]
+    [location, heading, playerId, updateGameScore, shoot]
   );
 
   React.useEffect(() => {

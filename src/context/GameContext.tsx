@@ -48,6 +48,7 @@ interface GameContextType extends GameState {
   reload: () => void;
   startGame: () => void;
   endGame: () => void;
+  updateGameScore: (action: GameScoreAction) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -166,6 +167,50 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [location]
   );
+
+  // MARK: - updateGameScore
+
+  const updateGameScore = useCallback((action: GameScoreAction) => {
+    setState((prev) => {
+      switch (action.type) {
+        case 'DRONE_HIT':
+          // Remove the hit drone from the drones array
+          const updatedDrones = prev.drones.filter(
+            (drone) => drone.droneId !== action.droneId
+          );
+
+          return {
+            ...prev,
+            drones: updatedDrones,
+            gameScore: {
+              ...prev.gameScore,
+              hits: prev.gameScore.hits + 1,
+            },
+          };
+
+        case 'HIT':
+          return {
+            ...prev,
+            gameScore: {
+              ...prev.gameScore,
+              hits: prev.gameScore.hits + 1,
+            },
+          };
+
+        case 'KILL':
+          return {
+            ...prev,
+            gameScore: {
+              ...prev.gameScore,
+              kills: prev.gameScore.kills + 1,
+            },
+          };
+
+        default:
+          return prev;
+      }
+    });
+  }, []);
 
   // MARK: - Game logic
   const handleHit = useCallback((damage: number) => {
@@ -528,6 +573,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     reload,
     startGame: () => setGameStarted(false),
     endGame: () => setGameStarted(false),
+    updateGameScore,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
