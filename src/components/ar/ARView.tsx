@@ -5,8 +5,6 @@ import { useLocationContext } from '../../context/LocationContext';
 import { DroneData } from '../../types/drone';
 import ARDroneModel from './ARDroneModel';
 
-const RAY_LENGTH = 5; // Adjust based on your scene size
-
 interface ARViewProps {
   drones?: DroneData[];
   onDroneShoot?: (droneId: string) => void;
@@ -94,6 +92,8 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
 
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
 
+  // MARK: - checkHit
+
   const checkHit = useCallback(() => {
     if (!sceneRef.current || !cameraRef.current) {
       console.log('Missing refs:', {
@@ -152,40 +152,44 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
           const relativePos = droneWorldPos
             .clone()
             .sub(cameraRef.current.position);
+
+          // Detailed position log for debugging
           console.log('Drone position:', {
             droneId,
             worldPosition: droneWorldPos,
             relativeToCamera: relativePos,
             distance: relativePos.length(),
           });
+
+          // Optional: Here you can add your hit detection logic if needed
+          // For example, if the ray intersects the drone, you can handle it like so:
+          // Intersection check
+          const intersects = raycaster.intersectObject(object);
+          if (intersects.length > 0) {
+            let hitObject = intersects[0].object;
+
+            // Traverse up to find main drone model
+            while (hitObject.parent && !hitObject.userData.isMainDroneModel) {
+              hitObject = hitObject.parent;
+            }
+
+            const droneId = hitObject.userData.droneId;
+            if (droneId) {
+              console.log(
+                'Hit confirmed on drone:',
+                droneId,
+                'at distance:',
+                intersects[0].distance
+              );
+
+              // Pass the main drone model
+              pullDownDrone(hitObject as THREE.Group);
+              onDroneShoot?.(droneId);
+            }
+          }
         }
       }
     });
-
-    // Check intersections
-    const intersects = raycaster.intersectObjects(targetMeshes, false);
-    console.log(
-      'Intersection results:',
-      intersects.map((hit) => ({
-        distance: hit.distance,
-        point: hit.point,
-        droneId: hit.object.userData.droneId,
-      }))
-    );
-
-    if (intersects.length > 0) {
-      const hitObject = intersects[0].object;
-      const droneId = hitObject.userData.droneId;
-      if (droneId) {
-        console.log(
-          'Hit confirmed on drone:',
-          droneId,
-          'at distance:',
-          intersects[0].distance
-        );
-        onDroneShoot?.(droneId);
-      }
-    }
 
     // Remove ray helper after delay
     setTimeout(() => {
@@ -211,6 +215,100 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       document.removeEventListener('gameShoot', handleShoot);
     };
   }, [checkHit]);
+
+  // MARK: - Smoke effect
+
+  const createSmokeEffect = (position: THREE.Vector3) => {
+    const smokeGeometry = new THREE.BufferGeometry();
+    const vertices = [];
+    for (let i = 0; i < 50; i++) {
+      vertices.push(
+        position.x + Math.random() * 2 - 1,
+        position.y + Math.random() * 2,
+        position.z + Math.random() * 2 - 1
+      );
+    }
+    smokeGeometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
+    const smokeMaterial = new THREE.PointsMaterial({
+      color: 0xaaaaaa, // Smoke color
+      size: 2, // Size of smoke particles
+      transparent: true,
+      opacity: 0.5, // Initial opacity
+    });
+
+    // Generate particles
+    const particles = [];
+    for (let i = 0; i < 50; i++) {
+      particles.push(
+        position.x + Math.random() * 2 - 1, // Random offset
+        position.y + Math.random() * 2, // Start above the hit point
+        position.z + Math.random() * 2 - 1 // Random offset
+      );
+    }
+    smokeGeometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(particles, 3)
+    );
+
+    const smoke = new THREE.Points(smokeGeometry, smokeMaterial);
+    sceneRef.current.add(smoke);
+
+    // Animate particles (move upward and fade out)
+    const animateSmoke = () => {
+      const positions = smokeGeometry.getAttribute('position');
+      for (let i = 0; i < positions.count; i++) {
+        positions.setY(i, positions.getY(i) + 0.05); // Move particles up
+        positions.setX(i, positions.getX(i) + (Math.random() - 0.5) * 0.1); // Add some random horizontal movement
+        positions.setZ(i, positions.getZ(i) + (Math.random() - 0.5) * 0.1);
+      }
+      positions.needsUpdate = true;
+
+      smokeMaterial.opacity -= 0.01; // Gradually fade out
+      if (smokeMaterial.opacity <= 0) {
+        sceneRef.current.remove(smoke); // Remove smoke after it fades
+      } else {
+        requestAnimationFrame(animateSmoke);
+      }
+    };
+
+    animateSmoke();
+  };
+
+  // MARK: - pullDownDrone
+
+  const pullDownDrone = (drone: THREE.Group) => {
+    const originalPosition = drone.position.clone();
+    const targetPosition = new THREE.Vector3(
+      originalPosition.x,
+      originalPosition.y - 5,
+      originalPosition.z
+    ); // Adjust '5' for how far to pull the drone down
+
+    const duration = 2; // Duration of the pull down in seconds
+    const startTime = performance.now();
+
+    // Start smoke effect once drone starts moving
+    createSmokeEffect(drone.position);
+
+    const animateDownward = () => {
+      const elapsedTime = (performance.now() - startTime) / 1000; // Time in seconds
+      const progress = Math.min(elapsedTime / duration, 1); // Progress of animation (0 to 1)
+
+      drone.position.lerpVectors(originalPosition, targetPosition, progress); // Linearly interpolate the position
+
+      if (progress < 1) {
+        requestAnimationFrame(animateDownward); // Keep animating until the drone reaches the target position
+      } else {
+        // Once drone reaches target position, remove it from the scene
+        sceneRef.current.remove(drone);
+      }
+    };
+
+    animateDownward();
+  };
 
   return (
     <div ref={containerRef} className="absolute inset-0">

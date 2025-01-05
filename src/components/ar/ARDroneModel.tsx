@@ -144,9 +144,17 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         model.position.copy(position);
         model.scale.copy(DRONE_SCALE);
         model.userData.droneId = drone.droneId;
+        model.userData.isMainDroneModel = true; // Add flag to main model
+
+        model.traverse((child) => {
+          child.userData.droneId = drone.droneId;
+          if (child instanceof THREE.Mesh) {
+            child.userData.isTargetable = true;
+          }
+        });
 
         // Bounding box setup
-        const boundingBoxGeometry = new THREE.BoxGeometry(35, 25, 45);
+        const boundingBoxGeometry = new THREE.BoxGeometry(35, 15, 25);
         const boundingBoxMaterial = new THREE.MeshBasicMaterial({
           color: 0xff0000,
           opacity: 0.2,
@@ -169,7 +177,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         console.log('Drone model loaded:', {
           droneId: drone.droneId,
           position: model.position,
-          boundingBox: boundingBox.getWorldPosition(new THREE.Vector3()),
+          // boundingBox: boundingBox.getWorldPosition(new THREE.Vector3()),
         });
       },
       undefined,
