@@ -7,7 +7,7 @@ interface ARDroneModelProps {
   drone: DroneData;
   onHit?: (droneId: string) => void;
   modelUrl: string;
-  scene: THREE.Scene; // Pass the scene from parent
+  scene: THREE.Scene;
 }
 
 const ARDroneModel: React.FC<ARDroneModelProps> = ({
@@ -19,50 +19,58 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   const modelRef = useRef<THREE.Group>();
   const isDestroyedRef = useRef(false);
   const mixers = useMemo(() => [] as THREE.AnimationMixer[], []);
+  const clock = useRef(new THREE.Clock());
 
-  // MARK: - Animations
   const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
-    const hoverAnimation = new THREE.AnimationMixer(modelRef.current);
-    mixers.push(hoverAnimation);
+    const mixer = new THREE.AnimationMixer(modelRef.current);
+    mixers.push(mixer);
 
+    // Initial position from the drone model
     const initialPosition = modelRef.current.position.clone();
-    const radius = 5;
-    const loopDuration = 30;
-    const points = 60;
-    const centerPoint = new THREE.Vector3(0, initialPosition.y, 0);
 
-    const keyTimes = Array.from(
-      { length: points + 1 },
-      (_, i) => (i / points) * loopDuration
-    );
+    // Hover animation
+    const hoverTimeline = [0, 0.5, 1]; // Normalized time points
+    const hoverHeights = [
+      initialPosition.y,
+      initialPosition.y + 0.2,
+      initialPosition.y,
+    ];
 
-    const xPositions = Array.from(
-      { length: points + 1 },
-      (_, i) => centerPoint.x + Math.cos((i * 2 * Math.PI) / points) * radius
-    );
-
-    const zPositions = Array.from(
-      { length: points + 1 },
-      (_, i) => centerPoint.z + Math.sin((i * 2 * Math.PI) / points) * radius
-    );
-
-    const hoverClip = new THREE.AnimationClip('hover', 4, [
+    const hoverClip = new THREE.AnimationClip('hover', 2, [
       new THREE.VectorKeyframeTrack(
         '.position[y]',
-        [0, 2, 4],
-        [initialPosition.y, initialPosition.y + 0.2, initialPosition.y]
+        hoverTimeline,
+        hoverHeights
       ),
     ]);
 
+    // Circular motion
+    const loopDuration = 10; // seconds per loop
+    const points = 30;
+    const radius = 5;
+    const centerPoint = new THREE.Vector3(0, initialPosition.y, 0);
+
+    const times = new Float32Array(points + 1);
+    const xPositions = new Float32Array(points + 1);
+    const zPositions = new Float32Array(points + 1);
+
+    for (let i = 0; i <= points; i++) {
+      times[i] = (i / points) * loopDuration;
+      const angle = (i / points) * Math.PI * 2;
+      xPositions[i] = centerPoint.x + Math.cos(angle) * radius;
+      zPositions[i] = centerPoint.z + Math.sin(angle) * radius;
+    }
+
     const circularClip = new THREE.AnimationClip('circular', loopDuration, [
-      new THREE.VectorKeyframeTrack('.position[x]', keyTimes, xPositions),
-      new THREE.VectorKeyframeTrack('.position[z]', keyTimes, zPositions),
+      new THREE.KeyframeTrack('.position[x]', times, xPositions),
+      new THREE.KeyframeTrack('.position[z]', times, zPositions),
     ]);
 
-    const hoverAction = hoverAnimation.clipAction(hoverClip);
-    const circularAction = hoverAnimation.clipAction(circularClip);
+    // Play animations
+    const hoverAction = mixer.clipAction(hoverClip);
+    const circularAction = mixer.clipAction(circularClip);
 
     hoverAction.setLoop(THREE.LoopPingPong, Infinity);
     circularAction.setLoop(THREE.LoopRepeat, Infinity);
@@ -71,14 +79,12 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
     circularAction.play();
   }, [mixers]);
 
-  // MARK: - Handle Hit
   const handleHit = useCallback(() => {
     if (isDestroyedRef.current || !modelRef.current) return false;
     isDestroyedRef.current = true;
 
     const fallAnimation = new THREE.AnimationMixer(modelRef.current);
     mixers.push(fallAnimation);
-
     const fallClip = new THREE.AnimationClip('fall', 1.5, [
       new THREE.VectorKeyframeTrack(
         '.position[y]',
@@ -106,14 +112,13 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
 
     setTimeout(() => {
       onHit?.(drone.droneId);
-      // Remove the drone from the scene after animation
       scene.remove(modelRef.current!);
     }, 1500);
 
     return true;
   }, [drone.droneId, onHit, scene]);
 
-  // MARK: - Load Model
+  // Load model and start animations
   useEffect(() => {
     const loader = new GLTFLoader();
     loader.load(
@@ -126,7 +131,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         const droneWorldPos = convertToVector3(drone.position);
         const position = new THREE.Vector3(
           droneWorldPos.x,
-          2, // 2 meters above eye level
+          4, // meters above eye level
           droneWorldPos.z
         );
 
@@ -139,8 +144,15 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
       (error) => console.error('Error loading drone model:', error)
     );
 
+    // Animation update loop
+    const frameId = requestAnimationFrame(function update() {
+      mixers.forEach((mixer) => mixer.update(clock.current.getDelta()));
+      requestAnimationFrame(update);
+    });
+
     // Cleanup
     return () => {
+      cancelAnimationFrame(frameId);
       mixers.forEach((mixer) => mixer.stopAllAction());
       if (modelRef.current) {
         scene.remove(modelRef.current);
@@ -148,23 +160,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
     };
   }, [scene, modelUrl, drone.position, startAnimations, mixers]);
 
-  // MARK: - Animation Update
-  useEffect(() => {
-    const animate = (deltaTime: number) => {
-      mixers.forEach((mixer) => mixer.update(deltaTime));
-    };
-
-    const clock = new THREE.Clock();
-    const frameId = requestAnimationFrame(function update() {
-      animate(clock.getDelta());
-      requestAnimationFrame(update);
-    });
-
-    return () => cancelAnimationFrame(frameId);
-  }, [mixers]);
-
-  // No need to render anything - we're just managing the 3D model
-  return null;
+  return null; // This component only manages the 3D model
 };
 
 export default ARDroneModel;

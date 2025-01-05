@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { DeviceOrientationControls } from 'three-stdlib';
 import { useLocationContext } from '../../context/LocationContext';
@@ -86,12 +86,44 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
     };
   }, []);
 
-  // Update camera rotation based on device heading
+  // Add raycaster for hit detection
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const mouse = useMemo(() => new THREE.Vector2(), []);
+
+  // Handle click/shoot
   useEffect(() => {
-    if (heading !== null && cameraRef.current) {
-      cameraRef.current.rotation.y = THREE.MathUtils.degToRad(-heading);
-    }
-  }, [heading]);
+    const handleClick = (event: MouseEvent) => {
+      if (!sceneRef.current || !cameraRef.current) return;
+
+      // Use fixed position from crosshair instead of mouse position
+      mouse.x = 0; // Center X
+      mouse.y = 1 / 3; // Match the Crosshair position at top-1/3
+
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, cameraRef.current);
+
+      // Calculate objects intersecting the picking ray
+      const intersects = raycaster.intersectObjects(
+        sceneRef.current.children,
+        true
+      );
+
+      if (intersects.length > 0) {
+        // Find the drone model that was hit
+        let hitObject = intersects[0].object;
+        while (hitObject.parent && !hitObject.userData.droneId) {
+          hitObject = hitObject.parent;
+        }
+
+        if (hitObject.userData.droneId) {
+          onDroneShoot?.(hitObject.userData.droneId);
+        }
+      }
+    };
+
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [raycaster, mouse, onDroneShoot]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">
