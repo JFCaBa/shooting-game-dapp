@@ -114,7 +114,7 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       raycaster.ray.direction,
       cameraRef.current.position, // Start from actual camera position
       50, // Long enough to see intersection with drones
-      0xffff00,
+      0xff0000,
       2, // Bigger arrow head
       1 // Bigger arrow head width
     );
