@@ -24,17 +24,21 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Setup Three.js
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
-      75,
+      50, // Narrower FOV to help with aiming
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 0, 0);
+
+    // Set camera at eye level but moved back
+    camera.position.set(0, 1.6, 2); // Moved back in Z to help with aiming angle
+
+    camera.rotation.set(0, 0, 0);
+
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -99,32 +103,39 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       return;
     }
 
-    // Use fixed crosshair position
-    const crosshair = new THREE.Vector2(0, 0.33);
-    console.log('Crosshair position:', crosshair);
+    // We know camera is at (0, 1.6, 0)
+    const crosshair = new THREE.Vector2(0, 0.33); // Adjusted to aim more horizontally from eye level
 
-    // Update raycaster
+    // Update raycaster from camera position
     raycaster.setFromCamera(crosshair, cameraRef.current);
-    console.log('Raycaster:', {
-      origin: raycaster.ray.origin,
-      direction: raycaster.ray.direction,
-    });
 
-    // Debug ray visualization
+    // Debug ray visualization - with proper origin and longer range
     const rayHelper = new THREE.ArrowHelper(
       raycaster.ray.direction,
-      raycaster.ray.origin,
-      20, // Increased length for better visibility
+      cameraRef.current.position, // Start from actual camera position
+      50, // Long enough to see intersection with drones
       0xffff00,
-      1,
-      0.5
+      2, // Bigger arrow head
+      1 // Bigger arrow head width
     );
     sceneRef.current.add(rayHelper);
-    console.log('Added ray helper to scene');
+
+    // Detailed debug information
+    console.log('Shoot debug:', {
+      camera: {
+        position: cameraRef.current.position,
+        rotation: cameraRef.current.rotation,
+      },
+      ray: {
+        origin: raycaster.ray.origin.clone(),
+        direction: raycaster.ray.direction.clone(),
+      },
+      crosshair,
+    });
 
     // Get all meshes with bounding boxes
     const targetMeshes: THREE.Object3D[] = [];
-    const seenDroneIds = new Set<string>(); // Track seen drone IDs
+    const seenDroneIds = new Set<string>();
 
     sceneRef.current.traverse((object) => {
       if (
@@ -134,42 +145,54 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
         const droneId = object.userData.droneId;
         if (!seenDroneIds.has(droneId)) {
           seenDroneIds.add(droneId);
-          console.log('Processing bounding box:', {
-            name: object.name,
-            position: object.position,
-            worldPosition: object.getWorldPosition(new THREE.Vector3()),
-            scale: object.scale,
-            matrix: object.matrix,
-          });
           targetMeshes.push(object);
+
+          // Log each drone's position relative to camera
+          const droneWorldPos = object.getWorldPosition(new THREE.Vector3());
+          const relativePos = droneWorldPos
+            .clone()
+            .sub(cameraRef.current.position);
+          console.log('Drone position:', {
+            droneId,
+            worldPosition: droneWorldPos,
+            relativeToCamera: relativePos,
+            distance: relativePos.length(),
+          });
         }
       }
     });
 
-    console.log('Total unique target meshes found:', targetMeshes.length);
-
-    // Check intersections with original meshes (no cloning)
+    // Check intersections
     const intersects = raycaster.intersectObjects(targetMeshes, false);
-    console.log('Intersection results:', intersects);
+    console.log(
+      'Intersection results:',
+      intersects.map((hit) => ({
+        distance: hit.distance,
+        point: hit.point,
+        droneId: hit.object.userData.droneId,
+      }))
+    );
 
     if (intersects.length > 0) {
       const hitObject = intersects[0].object;
       const droneId = hitObject.userData.droneId;
       if (droneId) {
-        console.log('Hit confirmed on drone:', droneId);
+        console.log(
+          'Hit confirmed on drone:',
+          droneId,
+          'at distance:',
+          intersects[0].distance
+        );
         onDroneShoot?.(droneId);
       }
-    } else {
-      console.log('No intersections found');
     }
 
     // Remove ray helper after delay
     setTimeout(() => {
       if (sceneRef.current) {
         sceneRef.current.remove(rayHelper);
-        console.log('Removed ray helper');
       }
-    }, 1000);
+    }, 2000); // Longer display time for better visualization
   }, [raycaster, onDroneShoot]);
 
   // Listen for gameShoot events

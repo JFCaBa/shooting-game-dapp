@@ -151,7 +151,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
           color: 0xff0000,
           opacity: 0.2,
           transparent: true,
-          visible: true,
+          visible: false,
         });
 
         const boundingBox = new THREE.Mesh(
