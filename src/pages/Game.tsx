@@ -31,27 +31,24 @@ export const Game = () => {
     return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
 
+  // MARK: - handleDroneHit
+
   const handleDroneHit = useCallback(
     (droneId: string) => {
       console.log('Drone hit:', droneId);
-
       // Send WebSocket message for drone hit
       const wsService = WebSocketService.getInstance();
       wsService.send({
         type: MessageType.SHOOT_DRONE,
         playerId: playerId!,
         data: {
-          drone: {
-            droneId: droneId,
-            position: {
-              x: 0,
-              y: 0,
-              z: 0,
-            },
-            kind: 'drone',
+          droneId: droneId,
+          position: {
+            x: 0,
+            y: 0,
+            z: 0,
           },
-          location: location,
-          heading: heading,
+          kind: 'drone',
         },
       });
 
@@ -62,7 +59,7 @@ export const Game = () => {
       });
 
       // Trigger shoot animation and sound
-      shoot(location, heading);
+      // shoot(location, heading);
     },
     [location, heading, playerId, updateGameScore, shoot]
   );

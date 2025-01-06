@@ -196,7 +196,7 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       if (sceneRef.current) {
         sceneRef.current.remove(rayHelper);
       }
-    }, 2000); // Longer display time for better visualization
+    }, 1000); // Longer display time for better visualization
   }, [raycaster, onDroneShoot]);
 
   // Listen for gameShoot events
@@ -233,8 +233,8 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       new THREE.Float32BufferAttribute(vertices, 3)
     );
     const smokeMaterial = new THREE.PointsMaterial({
-      color: 0xaaaaaa, // Smoke color
-      size: 2, // Size of smoke particles
+      color: 0xff0000, // Smoke color
+      size: 1, // Size of smoke particles
       transparent: true,
       opacity: 0.5, // Initial opacity
     });
@@ -304,6 +304,10 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
       } else {
         // Once drone reaches target position, remove it from the scene
         sceneRef.current.remove(drone);
+
+        // Play explosion sound
+        const audio = new Audio('/assets/explosion_sound.wav');
+        audio.play();
       }
     };
 

@@ -70,6 +70,13 @@ export type GameMessageData = {
   player?: Player;
   shoot?: ShootData;
   drone?: DroneData;
+  droneId?: String;
+  position?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  reward?: number;
   geoObject?: GeoObject;
   location?: LocationData;
   playerId?: string;

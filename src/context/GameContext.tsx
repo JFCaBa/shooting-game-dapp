@@ -351,6 +351,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           }
           break;
 
+        case MessageType.DRONE_SHOOT_CONFIRMED:
+          // if (message.data.playerId == state.playerId) {
+          const reward = message.data.reward || 2;
+          // Show a message like '2 SHOT' for 1 sec and fade out, the position for the message 10px above the crosshairs
+          const messageElement = document.createElement('div');
+          messageElement.textContent = `${reward} SHOT`;
+          messageElement.style.position = 'absolute';
+          messageElement.style.top = 'calc(33% - 60px)';
+          messageElement.style.left = '50%';
+          messageElement.style.transform = 'translate(-50%, -50%)';
+          messageElement.style.color = 'red';
+          messageElement.style.fontSize = '32px';
+          messageElement.style.fontWeight = 'bold';
+          messageElement.style.opacity = '1';
+          messageElement.style.transition = 'opacity 1s ease-out';
+
+          document.body.appendChild(messageElement);
+
+          setTimeout(() => {
+            messageElement.style.opacity = '0';
+            setTimeout(() => {
+              document.body.removeChild(messageElement);
+            }, 1000);
+          }, 1000);
+          // }
+          break;
+
         case MessageType.HIT_CONFIRMED:
           if (message.data && message.senderId === state.playerId) {
             const damage = message.data.damage;

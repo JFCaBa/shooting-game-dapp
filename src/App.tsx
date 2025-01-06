@@ -6,6 +6,7 @@ import Map from './pages/Map';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
+import DevicePermissionsHandler from './components/permissions/DevicePermissionsHandler';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('game');
@@ -33,23 +34,23 @@ const App = () => {
   return (
     <LocationProvider>
       <GameProvider>
-        <div className="h-screen w-screen overflow-hidden bg-game-dark flex flex-col">
-          {/* Main content area */}
-          <div className="flex-1 relative">
-            {renderScreen()}
+        <DevicePermissionsHandler>
+          <div className="h-screen w-screen overflow-hidden bg-game-dark flex flex-col">
+            {/* Main content area */}
+            <div className="flex-1 relative">{renderScreen()}</div>
+
+            {/* Navigation */}
+            <NavigationMenu
+              currentScreen={currentScreen}
+              onScreenChange={handleScreenChange}
+            />
+
+            {/* Modals */}
+            {showComingSoon && (
+              <ComingSoon onClose={() => setShowComingSoon(false)} />
+            )}
           </div>
-
-          {/* Navigation */}
-          <NavigationMenu 
-            currentScreen={currentScreen}
-            onScreenChange={handleScreenChange}
-          />
-
-          {/* Modals */}
-          {showComingSoon && (
-            <ComingSoon onClose={() => setShowComingSoon(false)} />
-          )}
-        </div>
+        </DevicePermissionsHandler>
       </GameProvider>
     </LocationProvider>
   );
