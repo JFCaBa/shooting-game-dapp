@@ -7,6 +7,7 @@ import ARView from '../components/ar/ARView';
 import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
 import GameStatus from '../components/game/GameStatus';
+import RewardAdModal from '../components/modals/RewardAdModal';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 
@@ -23,6 +24,9 @@ export const Game = () => {
     gameScore,
     shoot,
     updateGameScore,
+    showAdModal,
+    handleAdReward,
+    closeAdModal,
   } = useGameContext();
   const { location, heading } = useLocationContext();
 
@@ -31,12 +35,9 @@ export const Game = () => {
     return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
 
-  // MARK: - handleDroneHit
-
   const handleDroneHit = useCallback(
     (droneId: string) => {
       console.log('Drone hit:', droneId);
-      // Send WebSocket message for drone hit
       const wsService = WebSocketService.getInstance();
       wsService.send({
         type: MessageType.SHOOT_DRONE,
@@ -52,26 +53,13 @@ export const Game = () => {
         },
       });
 
-      // Update local game score
       updateGameScore({
         type: 'DRONE_HIT',
         droneId: droneId,
       });
-
-      // Trigger shoot animation and sound
-      // shoot(location, heading);
     },
-    [location, heading, playerId, updateGameScore, shoot]
+    [playerId, updateGameScore]
   );
-
-  React.useEffect(() => {
-    console.log('Game component - Update:', {
-      totalPlayers: players.length,
-      otherPlayers: otherPlayers.length,
-      currentPlayerId: playerId,
-      activeDrones: drones.length,
-    });
-  }, [players, otherPlayers, playerId, drones]);
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
@@ -117,6 +105,15 @@ export const Game = () => {
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-4xl">
             Reloading...
           </div>
+        )}
+
+        {/* Ad Modal */}
+        {showAdModal && (
+          <RewardAdModal
+            type={showAdModal}
+            onClose={closeAdModal}
+            onReward={handleAdReward}
+          />
         )}
       </div>
     </div>

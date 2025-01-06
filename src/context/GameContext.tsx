@@ -41,6 +41,7 @@ interface GameState {
   };
   heading: number;
   pushToken: null;
+  showAdModal: 'ammo' | 'lives' | null;
 }
 
 interface GameContextType extends GameState {
@@ -49,6 +50,8 @@ interface GameContextType extends GameState {
   startGame: () => void;
   endGame: () => void;
   updateGameScore: (action: GameScoreAction) => void;
+  handleAdReward: () => void;
+  closeAdModal: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -69,6 +72,7 @@ const INITIAL_STATE: GameState = {
   location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 },
   heading: 0,
   pushToken: null,
+  showAdModal: null,
 };
 
 const RELOAD_TIME = 3000;
@@ -216,7 +220,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleHit = useCallback((damage: number) => {
     setState((prev) => {
       const newLives = Math.max(0, prev.currentLives - damage);
+      // Show ad modal if player dies
       if (newLives === 0) {
+        return {
+          ...prev,
+          currentLives: newLives,
+          isAlive: false,
+          showAdModal: 'lives',
+        };
+      }
+
+      // Normal respawn timer if ad is declined
+      if (newLives === 0 && !prev.showAdModal) {
         setTimeout(() => {
           setState((prev) => ({
             ...prev,
@@ -225,6 +240,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           }));
         }, RESPAWN_TIME);
       }
+
       return {
         ...prev,
         currentLives: newLives,
@@ -506,8 +522,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     // };
   }, [state.playerId, handleGameMessage]);
 
+  const handleAdReward = useCallback(() => {
+    switch (state.showAdModal) {
+      case 'ammo':
+        setState((prev) => ({
+          ...prev,
+          currentAmmo: prev.maxAmmo,
+          isReloading: false,
+          showAdModal: null,
+        }));
+        break;
+      case 'lives':
+        setState((prev) => ({
+          ...prev,
+          currentLives: prev.maxLives,
+          isAlive: true,
+          showAdModal: null,
+        }));
+        break;
+    }
+  }, [state.showAdModal]);
+
+  const closeAdModal = useCallback(() => {
+    setState((prev) => ({ ...prev, showAdModal: null }));
+  }, []);
+
   const reload = useCallback(() => {
     if (!state.isReloading) {
+      // Show ad modal if ammo is depleted
+      if (state.currentAmmo === 0) {
+        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
+        return;
+      }
+
       setState((prev) => ({ ...prev, isReloading: true }));
 
       setTimeout(() => {
@@ -533,6 +580,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           isReloading: state.isReloading,
           currentAmmo: state.currentAmmo,
         });
+        return;
+      }
+
+      // Check if out of ammo
+      if (state.currentAmmo <= 0) {
+        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
         return;
       }
 
@@ -598,9 +651,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     ...state,
     shoot,
     reload,
-    startGame: () => setGameStarted(false),
+    startGame: () => setGameStarted(true),
     endGame: () => setGameStarted(false),
     updateGameScore,
+    handleAdReward,
+    closeAdModal,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
