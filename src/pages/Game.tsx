@@ -28,7 +28,8 @@ export const Game = () => {
     handleAdReward,
     closeAdModal,
   } = useGameContext();
-  const { location, heading } = useLocationContext();
+
+  const { location } = useLocationContext();
 
   // Keep track of other players for debugging/monitoring
   const otherPlayers = React.useMemo(() => {

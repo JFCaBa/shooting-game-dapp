@@ -120,6 +120,7 @@ const calculateDamage = (
 };
 
 // MARK: - Game Provider
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -311,21 +312,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       // When WebSocket connects, send join message
       if (message.type === MessageType.WEBSOCKET_CONNECTED) {
         try {
-          const playerLocation = location
-            ? location
-            : await locationService.getCurrentLocation();
-          console.log('Location for join message:', location);
-
           const joinMessage: GameMessage = {
             type: MessageType.JOIN,
             playerId: state.playerId!,
             data: {
-              location: {
-                latitude: playerLocation.latitude,
-                longitude: playerLocation.longitude,
-                altitude: playerLocation.altitude,
-                accuracy: playerLocation.accuracy,
-              },
               playerId: state.playerId,
               kind: 'player',
               heading: 0,
