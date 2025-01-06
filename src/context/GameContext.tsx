@@ -284,9 +284,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       const shootMessage: GameMessage = {
         type,
         playerId: state.playerId!,
-        senderId: shootData.hitPlayerId,
+        senderId: message.playerId,
         data: {
-          hitPlayerId: shootData.hitPlayerId,
+          hitPlayerId: message.playerId,
           damage: hitValidation.damage,
           distance: hitValidation.distance,
           deviation: hitValidation.deviation,
@@ -307,7 +307,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleGameMessage = useCallback(
     async (message: GameMessage, wsInstance: WebSocketService) => {
-      console.log('Received message:', message.type);
+      console.log('Received message:', message);
 
       // When WebSocket connects, send join message
       if (message.type === MessageType.WEBSOCKET_CONNECTED) {
@@ -323,7 +323,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             pushToken: null,
           };
 
-          console.log('Sending join message:', joinMessage);
           wsInstance.send(joinMessage);
         } catch (error) {
           console.error('Failed to send join message:', error);
@@ -333,7 +332,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
       switch (message.type) {
         case MessageType.SHOOT:
-          console.log('Shot received:', message.data);
           if (message.data && message.playerId !== state.playerId) {
             await handleShot(message, message.data as ShootData, wsInstance);
             setState((prev) => ({
@@ -440,14 +438,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
 
         case MessageType.NEW_GEO_OBJECT:
-          if (message.data.geoObject) {
-            notifyNewGeoObject([message.data.geoObject]);
+          if (message.data) {
+            console.log('Geo object data: ', message.data);
+            setState((prev) => ({
+              ...prev,
+              geoObjects: [...prev.geoObjects, message.data as GeoObject],
+            }));
           }
           break;
 
         case MessageType.GEO_OBJECT_HIT:
-          if (message.data.geoObject) {
-            handleGeoObjectHit(message.data.geoObject);
+          if (message.data.geoObject?.id) {
+            setState((prev) => ({
+              ...prev,
+              geoObjects: prev.geoObjects.filter(
+                (obj) => obj.id !== message.data.geoObject?.id
+              ),
+            }));
           }
           break;
 
