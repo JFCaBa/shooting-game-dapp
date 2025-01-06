@@ -108,11 +108,18 @@ export const Game = () => {
         )}
 
         {/* Ad Modal */}
+        {/* Ad Modal */}
         {showAdModal && (
           <RewardAdModal
             type={showAdModal}
-            onClose={closeAdModal}
-            onReward={handleAdReward}
+            onClose={() => {
+              console.log('Modal close requested');
+              closeAdModal();
+            }}
+            onReward={() => {
+              console.log('Reward requested');
+              handleAdReward();
+            }}
           />
         )}
       </div>
