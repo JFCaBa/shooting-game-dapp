@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { FaCog } from 'react-icons/fa';
 import { Screen } from '../../types/navigation';
 import ShootButton from '../game/ShootButton';
+import Radar from '../game/Radar';
 import { useGameContext } from '../../context/GameContext';
 import { useLocationContext } from '../../context/LocationContext';
 
@@ -63,7 +64,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
 
       {/* Bottom row - Action Buttons with safe area padding */}
       <div className="flex justify-between items-center px-4 py-4 pb-safe mb-5">
-        <div className="w-12" /> {/* Empty space for radar (placeholder) */}
+        <Radar />
         <ShootButton
           isReloading={isReloading}
           currentAmmo={currentAmmo}

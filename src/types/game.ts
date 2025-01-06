@@ -37,8 +37,9 @@ export type DroneData = {
 export type GeoObject = {
   id: string;
   type: string;
-  location: LocationData;
-  properties: Record<string, any>;
+  coordinate: LocationData;
+  kind?: string;
+  metadata?: Record<string, any>;
 };
 
 export type GameScore = {
