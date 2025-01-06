@@ -17,7 +17,6 @@ const ARView: React.FC<ARViewProps> = ({ drones = [], onDroneShoot }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>();
   const controlsRef = useRef<DeviceOrientationControls>();
   const animationFrameIdRef = useRef<number>();
-  const { heading } = useLocationContext();
 
   useEffect(() => {
     if (!containerRef.current) return;

@@ -8,7 +8,7 @@ export type LocationData = {
 
 export type Player = {
   playerId: string;
-  location: LocationData;
+  location?: LocationData;
   heading: number;
 };
 

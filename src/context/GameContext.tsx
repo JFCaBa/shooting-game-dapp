@@ -41,6 +41,7 @@ interface GameState {
   };
   heading: number;
   pushToken: null;
+  showAdModal: 'ammo' | 'lives' | null;
 }
 
 interface GameContextType extends GameState {
@@ -49,6 +50,8 @@ interface GameContextType extends GameState {
   startGame: () => void;
   endGame: () => void;
   updateGameScore: (action: GameScoreAction) => void;
+  handleAdReward: () => void;
+  closeAdModal: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -69,6 +72,7 @@ const INITIAL_STATE: GameState = {
   location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 },
   heading: 0,
   pushToken: null,
+  showAdModal: null,
 };
 
 const RELOAD_TIME = 3000;
@@ -116,6 +120,7 @@ const calculateDamage = (
 };
 
 // MARK: - Game Provider
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -216,7 +221,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleHit = useCallback((damage: number) => {
     setState((prev) => {
       const newLives = Math.max(0, prev.currentLives - damage);
+      // Show ad modal if player dies
       if (newLives === 0) {
+        return {
+          ...prev,
+          currentLives: newLives,
+          isAlive: false,
+          showAdModal: 'lives',
+        };
+      }
+
+      // Normal respawn timer if ad is declined
+      if (newLives === 0 && !prev.showAdModal) {
         setTimeout(() => {
           setState((prev) => ({
             ...prev,
@@ -225,6 +241,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           }));
         }, RESPAWN_TIME);
       }
+
       return {
         ...prev,
         currentLives: newLives,
@@ -295,21 +312,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       // When WebSocket connects, send join message
       if (message.type === MessageType.WEBSOCKET_CONNECTED) {
         try {
-          const playerLocation = location
-            ? location
-            : await locationService.getCurrentLocation();
-          console.log('Location for join message:', location);
-
           const joinMessage: GameMessage = {
             type: MessageType.JOIN,
             playerId: state.playerId!,
             data: {
-              location: {
-                latitude: playerLocation.latitude,
-                longitude: playerLocation.longitude,
-                altitude: playerLocation.altitude,
-                accuracy: playerLocation.accuracy,
-              },
               playerId: state.playerId,
               kind: 'player',
               heading: 0,
@@ -354,27 +360,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         case MessageType.DRONE_SHOOT_CONFIRMED:
           // if (message.data.playerId == state.playerId) {
           const reward = message.data.reward || 2;
-          // Show a message like '2 SHOT' for 1 sec and fade out, the position for the message 10px above the crosshairs
-          const messageElement = document.createElement('div');
-          messageElement.textContent = `${reward} SHOT`;
-          messageElement.style.position = 'absolute';
-          messageElement.style.top = 'calc(33% - 60px)';
-          messageElement.style.left = '50%';
-          messageElement.style.transform = 'translate(-50%, -50%)';
-          messageElement.style.color = 'red';
-          messageElement.style.fontSize = '32px';
-          messageElement.style.fontWeight = 'bold';
-          messageElement.style.opacity = '1';
-          messageElement.style.transition = 'opacity 1s ease-out';
-
-          document.body.appendChild(messageElement);
-
-          setTimeout(() => {
-            messageElement.style.opacity = '0';
-            setTimeout(() => {
-              document.body.removeChild(messageElement);
-            }, 1000);
-          }, 1000);
+          showReward(reward);
           // }
           break;
 
@@ -475,12 +461,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     [state, location, handleShot, resetDroneTimer, handleHit]
   );
 
+  // MARK: - showReward
+  interface ShowReward {
+    (reward: number): void;
+  }
+
+  const showReward: ShowReward = (reward) => {
+    // Show a message like '2 SHOT' for 1 sec and fade out, the position for the message 10px above the crosshairs
+    const messageElement = document.createElement('div');
+    messageElement.textContent = `${reward} SHOT`;
+    messageElement.style.position = 'absolute';
+    messageElement.style.top = 'calc(33% - 60px)';
+    messageElement.style.left = '50%';
+    messageElement.style.transform = 'translate(-50%, -50%)';
+    messageElement.style.color = 'red';
+    messageElement.style.fontSize = '32px';
+    messageElement.style.fontWeight = 'bold';
+    messageElement.style.opacity = '1';
+    messageElement.style.transition = 'opacity 1s ease-out';
+
+    document.body.appendChild(messageElement);
+
+    setTimeout(() => {
+      messageElement.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(messageElement);
+      }, 1000);
+    }, 1000);
+  };
+
+  // MARK: - temporary id
+
   useEffect(() => {
     if (!state.playerId) {
       const playerId = generateTemporaryId();
       setState((prev) => ({ ...prev, playerId }));
     }
   }, [state.playerId]);
+
+  // MARK: - socket connection
 
   useEffect(() => {
     if (!state.playerId || wsInstanceRef.current) {
@@ -506,8 +525,77 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     // };
   }, [state.playerId, handleGameMessage]);
 
+  // MARK: - handleAdReward
+
+  const handleAdReward = useCallback(() => {
+    switch (state.showAdModal) {
+      case 'ammo':
+        setState((prev) => ({
+          ...prev,
+          currentAmmo: prev.maxAmmo,
+          isReloading: false,
+          showAdModal: null,
+        }));
+        break;
+      case 'lives':
+        setState((prev) => ({
+          ...prev,
+          currentLives: prev.maxLives,
+          isAlive: true,
+          showAdModal: null,
+        }));
+        break;
+    }
+  }, [state.showAdModal]);
+
+  // MARK: - closeAdModal
+
+  const closeAdModal = useCallback(() => {
+    console.log('Closing ad modal');
+    setState((prev) => ({
+      ...prev,
+      showAdModal: null,
+    }));
+
+    console.log('⏳ Starting reload process');
+    setState((prev) => ({ ...prev, isReloading: true }));
+
+    setTimeout(() => {
+      setState((prev) => ({
+        ...prev,
+        currentAmmo: prev.maxAmmo,
+        isReloading: false,
+      }));
+    }, RELOAD_TIME);
+  }, [state.isReloading, state.currentAmmo]);
+
+  // MARK: reload
+
   const reload = useCallback(() => {
+    console.log('🔄 Reload function called', {
+      currentAmmo: state.currentAmmo,
+      isReloading: state.isReloading,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!state.isReloading) {
+      // Only show ad modal or start reload when ammo is fully depleted
+      if (state.currentAmmo <= 1) {
+        console.log('📉 Zero ammo, showing ad modal');
+        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
+        return;
+      }
+
+      // Don't start reloading unless ammo is very low (let's say 1 or 0)
+      if (state.currentAmmo > 1) {
+        console.log(
+          '🎯 Sufficient ammo, no need to reload:',
+          state.currentAmmo
+        );
+        return;
+      }
+
+      console.log('⏳ Starting reload process');
       setState((prev) => ({ ...prev, isReloading: true }));
 
       setTimeout(() => {
@@ -518,30 +606,58 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         }));
       }, RELOAD_TIME);
     }
-  }, [state.isReloading]);
+  }, [state.isReloading, state.currentAmmo]);
+
+  // MARK: - shoot
 
   const shoot = useCallback(
     (location: LocationData, heading: number) => {
-      if (
-        !state.isAlive ||
-        state.isReloading ||
-        state.currentAmmo <= 0 ||
-        !state.playerId
-      ) {
-        console.log('Shoot blocked:', {
-          isAlive: state.isAlive,
-          isReloading: state.isReloading,
-          currentAmmo: state.currentAmmo,
-        });
+      console.log(
+        '🔫 Shoot function called with current ammo:',
+        state.currentAmmo
+      );
+
+      if (!state.isAlive || !state.playerId) {
+        console.log('❌ Shoot blocked - not alive or no player ID');
         return;
       }
 
+      // Check current ammo before decreasing
+      console.log('📊 Pre-shoot ammo check:', {
+        currentAmmo: state.currentAmmo,
+        isReloading: state.isReloading,
+      });
+
+      if (state.currentAmmo <= 0) {
+        console.log('🚫 No ammo left, showing ad modal');
+        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
+        return;
+      }
+
+      if (state.isReloading) {
+        console.log('⏳ Blocked - currently reloading');
+        return;
+      }
+
+      // Update ammo count
       setState((prev) => {
-        const newAmmo = Math.max(0, prev.currentAmmo - 1);
-        if (newAmmo <= 0) {
-          reload();
+        const newAmmo = prev.currentAmmo - 1;
+        console.log('🔄 Decreasing ammo', {
+          previous: prev.currentAmmo,
+          new: newAmmo,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Only trigger reload when ammo is critically low
+        if (newAmmo <= 1) {
+          console.log('📉 Low ammo, triggering reload');
+          setTimeout(() => reload(), 0);
         }
-        return { ...prev, currentAmmo: newAmmo };
+
+        return {
+          ...prev,
+          currentAmmo: newAmmo,
+        };
       });
 
       const wsInstance = WebSocketService.getInstance();
@@ -561,9 +677,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (location) {
         wsInstance.send(message);
-        console.log('Shoot fired:', shootData);
-      } else {
-        console.log('Shoot not fired, location not present');
+        console.log('✅ Shot fired, message sent');
       }
     },
     [
@@ -598,14 +712,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     ...state,
     shoot,
     reload,
-    startGame: () => setGameStarted(false),
+    startGame: () => setGameStarted(true),
     endGame: () => setGameStarted(false),
     updateGameScore,
+    handleAdReward,
+    closeAdModal,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
 
+// MARK: - generateTemporaryId
 const generateTemporaryId = () => {
   const storedId = localStorage.getItem('playerId');
   if (storedId) {
@@ -626,6 +743,8 @@ const generateTemporaryId = () => {
   localStorage.setItem('playerId', newId);
   return newId;
 };
+
+// MARK: - useGameContext
 
 export const useGameContext = () => {
   const context = useContext(GameContext);
