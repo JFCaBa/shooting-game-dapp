@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css'; 
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { locationService } from '../services/LocationService';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
@@ -13,7 +13,7 @@ const containerStyle: React.CSSProperties = {
 
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     const fetchLocationAndInitMap = async () => {
@@ -41,7 +41,7 @@ const Map = () => {
             .addTo(map);
         }
       } catch (error) {
-        console.error("Error fetching location:", error);
+        console.error('Error fetching location:', error);
       }
     };
 

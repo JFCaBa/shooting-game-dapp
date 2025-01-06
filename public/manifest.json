@@ -2,7 +2,7 @@
   "short_name": "Shooting Game",
   "name": "Shooting Game DApp",
   "description": "A decentralized shooting game that lets you explore and compete on the blockchain!",
-  
+
   "icons": [
     {
       "src": "favicon.ico",
@@ -26,13 +26,13 @@
       "purpose": "any maskable"
     }
   ],
-  
+
   "start_url": ".",
   "scope": ".",
-  
+
   "display": "standalone",
   "orientation": "portrait",
-  
+
   "theme_color": "#000000",
   "background_color": "#ffffff"
 }

@@ -118,7 +118,7 @@ export class LocationService {
 
   getCurrentHeading(): Promise<number> {
     return new Promise((resolve, reject) => {
-      const watchId = navigator.geolocation.watchPosition(
+      navigator.geolocation.watchPosition(
         (position) => {
           if (position.coords.heading !== null) {
             resolve(position.coords.heading);

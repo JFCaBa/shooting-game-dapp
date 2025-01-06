@@ -1,4 +1,3 @@
-// src/context/GameContext.tsx
 import { useLocationContext } from '../context/LocationContext';
 import React, {
   createContext,
@@ -49,6 +48,7 @@ interface GameContextType extends GameState {
   reload: () => void;
   startGame: () => void;
   endGame: () => void;
+  updateGameScore: (action: GameScoreAction) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -127,7 +127,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const validateHit = useCallback(
     async (shooterLocation: LocationData, shooterHeading: number) => {
       console.log('Validating hit:', shooterLocation, shooterHeading);
-      const { location } = useLocationContext();
 
       try {
         const playerLocation = location
@@ -166,8 +165,52 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         return { isValid: false, damage: 0, distance: 0, deviation: 0 };
       }
     },
-    []
+    [location]
   );
+
+  // MARK: - updateGameScore
+
+  const updateGameScore = useCallback((action: GameScoreAction) => {
+    setState((prev) => {
+      switch (action.type) {
+        case 'DRONE_HIT':
+          // Remove the hit drone from the drones array
+          const updatedDrones = prev.drones.filter(
+            (drone) => drone.droneId !== action.droneId
+          );
+
+          return {
+            ...prev,
+            drones: updatedDrones,
+            gameScore: {
+              ...prev.gameScore,
+              hits: prev.gameScore.hits + 1,
+            },
+          };
+
+        case 'HIT':
+          return {
+            ...prev,
+            gameScore: {
+              ...prev.gameScore,
+              hits: prev.gameScore.hits + 1,
+            },
+          };
+
+        case 'KILL':
+          return {
+            ...prev,
+            gameScore: {
+              ...prev.gameScore,
+              kills: prev.gameScore.kills + 1,
+            },
+          };
+
+        default:
+          return prev;
+      }
+    });
+  }, []);
 
   // MARK: - Game logic
   const handleHit = useCallback((damage: number) => {
@@ -308,6 +351,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           }
           break;
 
+        case MessageType.DRONE_SHOOT_CONFIRMED:
+          // if (message.data.playerId == state.playerId) {
+          const reward = message.data.reward || 2;
+          // Show a message like '2 SHOT' for 1 sec and fade out, the position for the message 10px above the crosshairs
+          const messageElement = document.createElement('div');
+          messageElement.textContent = `${reward} SHOT`;
+          messageElement.style.position = 'absolute';
+          messageElement.style.top = 'calc(33% - 60px)';
+          messageElement.style.left = '50%';
+          messageElement.style.transform = 'translate(-50%, -50%)';
+          messageElement.style.color = 'red';
+          messageElement.style.fontSize = '32px';
+          messageElement.style.fontWeight = 'bold';
+          messageElement.style.opacity = '1';
+          messageElement.style.transition = 'opacity 1s ease-out';
+
+          document.body.appendChild(messageElement);
+
+          setTimeout(() => {
+            messageElement.style.opacity = '0';
+            setTimeout(() => {
+              document.body.removeChild(messageElement);
+            }, 1000);
+          }, 1000);
+          // }
+          break;
+
         case MessageType.HIT_CONFIRMED:
           if (message.data && message.senderId === state.playerId) {
             const damage = message.data.damage;
@@ -357,17 +427,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
         case MessageType.NEW_DRONE:
           console.log('New drone:', message.data);
+
           if (message.data && message.playerId === state.playerId) {
             resetDroneTimer();
-            setState((prev) => ({
-              ...prev,
-              drones: [
-                ...prev.drones.filter(
-                  (p) => p.droneId !== (message.data as DroneData).droneId
-                ),
+
+            setState((prev) => {
+              const existingDrones = prev.drones.filter(
+                (p) => p.droneId !== (message.data as DroneData).droneId
+              );
+
+              // Ensure the list does not exceed 5 drones
+              const updatedDrones = [
+                ...existingDrones,
                 message.data as DroneData,
-              ],
-            }));
+              ];
+              if (updatedDrones.length > 5) {
+                updatedDrones.shift(); // Remove the oldest drone
+              }
+
+              return {
+                ...prev,
+                drones: updatedDrones,
+              };
+            });
           }
           break;
 
@@ -390,7 +472,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
       }
     },
-    [state, handleShot, resetDroneTimer, handleHit]
+    [state, location, handleShot, resetDroneTimer, handleHit]
   );
 
   useEffect(() => {
@@ -493,20 +575,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     ]
   );
 
-  const notifyHitConfirmed = (damage: number) => {
-    document.dispatchEvent(
-      new CustomEvent('hitConfirmed', { detail: { damage } })
-    );
-  };
-
-  const notifyKill = (targetId: string) => {
-    document.dispatchEvent(new CustomEvent('kill', { detail: { targetId } }));
-  };
-
-  const notifyNewDrone = (droneData: DroneData) => {
-    document.dispatchEvent(new CustomEvent('newDrone', { detail: droneData }));
-  };
-
   const notifyNewGeoObject = (geoObjects: GeoObject[]) => {
     setState((prev) => ({
       ...prev,
@@ -532,6 +600,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     reload,
     startGame: () => setGameStarted(false),
     endGame: () => setGameStarted(false),
+    updateGameScore,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

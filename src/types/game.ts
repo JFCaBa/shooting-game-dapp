@@ -57,18 +57,26 @@ export enum MessageType {
   LEAVE = 'leave',
   ANNOUNCED = 'announced',
   NEW_DRONE = 'newDrone',
+  SHOOT_DRONE = 'shootDrone',
   DRONE_SHOOT_CONFIRMED = 'droneShootConfirmed',
   DRONE_SHOOT_REJECTED = 'droneShootRejected',
   NEW_GEO_OBJECT = 'newGeoObject',
   GEO_OBJECT_HIT = 'geoObjectHit',
   GEO_OBJECT_SHOOT_CONFIRMED = 'geoObjectShootConfirmed',
-  GEO_OBJECT_SHOOT_REJECTED = 'geoObjectShootRejected'
+  GEO_OBJECT_SHOOT_REJECTED = 'geoObjectShootRejected',
 }
 
 export type GameMessageData = {
   player?: Player;
   shoot?: ShootData;
   drone?: DroneData;
+  droneId?: String;
+  position?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  reward?: number;
   geoObject?: GeoObject;
   location?: LocationData;
   playerId?: string;

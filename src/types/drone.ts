@@ -14,7 +14,7 @@ export interface DroneData {
 
 export enum DroneType {
   FourRotorOne = 'fourRotorOne',
-  Box = 'box'
+  Box = 'box',
 }
 
 export interface DroneAnimations {
@@ -27,4 +27,4 @@ export const convertToVector3 = (pos: Position3D): Vector3 => {
   return new Vector3(pos.x, pos.y, pos.z);
 };
 
-export const DRONE_SCALE = new Vector3(0.5, 0.5, 0.5);
+export const DRONE_SCALE = new Vector3(0.05, 0.05, 0.05);
