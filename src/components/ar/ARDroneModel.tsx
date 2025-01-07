@@ -68,7 +68,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
-    const eyeLevelOffset = 1; // Adjust this value for desired height
+    const eyeLevelOffset = 2; // Adjust this value for desired height
     const initialPosition = modelRef.current.position.clone();
     initialPosition.y += eyeLevelOffset;
 
@@ -97,7 +97,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
     hoverAction.play();
 
     // Patrol animation
-    const patrolRadius = 5;
+    const patrolRadius = 8;
     const patrolDuration = 6;
     const patrolPoints = Array.from({ length: 31 }, (_, i) => {
       const angle = (i / 30) * Math.PI * 2;

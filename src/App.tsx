@@ -13,6 +13,7 @@ import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
+import Profile from './pages/Profile';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
@@ -156,6 +157,7 @@ const App = () => {
             <Routes>
               <Route path="/create-user" element={<CreateUser />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/*" element={<GameLayout />} />
             </Routes>
           </DevicePermissionsHandler>

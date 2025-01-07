@@ -85,7 +85,7 @@ const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
         });
       },
       undefined,
-      (error) => console.error('Error loading geoObject model:', error)
+      (error) => console.error('Error loading geoObject model:', geoObject.type)
     );
 
     return () => {

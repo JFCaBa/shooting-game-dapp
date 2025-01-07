@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface DevicePermissionsHandlerProps {
   children: React.ReactNode;
@@ -85,12 +85,18 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
   return permissionsChecked ? (
     <>{children}</>
   ) : (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
-      <div className="bg-white p-6 rounded-lg max-w-sm mx-4 text-center">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">
+    <div className="fixed inset-0 flex items-start justify-center bg-black bg-opacity-75 z-50">
+      <div className="max-w-sm mx-4 text-center mt-[20vh]">
+        {/* Logo */}
+        <div className="text-center my-12">
+          <h1 className="text-5xl font-bold">
+            Shooting<span className="text-red-500">D</span>app
+          </h1>
+        </div>
+        <h2 className="text-left text-xl font-bold mb-4 text-gray-400">
           Welcome to AR Shooting Game!
         </h2>
-        <p className="text-gray-600 mb-4">
+        <p className="text-left text-gray-200 mb-4">
           Please tap anywhere on the screen to grant required permissions for
           the best experience.
         </p>
@@ -98,6 +104,29 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
           <p>• Camera access for AR view</p>
           <p>• Location for player positioning</p>
           <p>• Motion sensors for AR controls</p>
+        </div>
+
+        {/* Privacy Policy and Terms & Conditions Links */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-sm text-gray-500">
+          <p>
+            <a
+              href="https://shootingdapp.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-red-500"
+            >
+              Privacy Policy
+            </a>{' '}
+            |{' '}
+            <a
+              href="https://shootingdapp.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-red-500"
+            >
+              Terms and Conditions
+            </a>
+          </p>
         </div>
       </div>
     </div>
