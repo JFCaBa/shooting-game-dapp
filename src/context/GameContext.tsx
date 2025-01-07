@@ -45,6 +45,8 @@ interface GameState {
 }
 
 interface GameContextType extends GameState {
+  geoObjects;
+  setGeoObjects;
   shoot: (location: LocationData, heading: number) => void;
   reload: () => void;
   startGame: () => void;
@@ -125,6 +127,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
+  const [geoObjects, setGeoObjects] = useState<GeoObject[]>([]);
   const [, setGameStarted] = useState(false);
   const wsInstanceRef = useRef<WebSocketService | null>(null);
   const { location } = useLocationContext();
@@ -303,6 +306,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     [state.playerId, validateHit, handleHit]
   );
 
+  const handleGeoObjectUpdate = useCallback((message: GameMessage) => {
+    if (message.data) {
+      setGeoObjects((prev) => [...prev, message.data as GeoObject]);
+      setState((prev) => ({
+        ...prev,
+        geoObjects: [...prev.geoObjects, message.data as GeoObject],
+      }));
+    }
+  }, []);
+
   // MARK: - GameMessage
 
   const handleGameMessage = useCallback(
@@ -438,23 +451,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
 
         case MessageType.NEW_GEO_OBJECT:
-          if (message.data) {
-            console.log('Geo object data: ', message.data);
-            setState((prev) => ({
-              ...prev,
-              geoObjects: [...prev.geoObjects, message.data as GeoObject],
-            }));
-          }
+          handleGeoObjectUpdate(message);
           break;
 
         case MessageType.GEO_OBJECT_HIT:
-          if (message.data.geoObject?.id) {
-            setState((prev) => ({
-              ...prev,
-              geoObjects: prev.geoObjects.filter(
-                (obj) => obj.id !== message.data.geoObject?.id
-              ),
-            }));
+          if (message.data.geoObject) {
+            setGeoObjects((prev) =>
+              prev.filter((obj) => obj.id !== message.data.geoObject.id)
+            );
           }
           break;
 
@@ -715,8 +719,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
-  const value = {
+  const value: GameContextType = {
     ...state,
+    geoObjects,
+    setGeoObjects,
     shoot,
     reload,
     startGame: () => setGameStarted(true),
@@ -762,4 +768,4 @@ export const useGameContext = () => {
 };
 
 // Export only GameContext as GameProvider is already exported
-export { GameContext };
+export default GameContext;

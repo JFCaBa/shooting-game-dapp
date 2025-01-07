@@ -21,14 +21,14 @@ export const Game = () => {
     players,
     playerId,
     drones,
+    geoObjects,
     gameScore,
-    shoot,
     updateGameScore,
+    setGeoObjects,
     showAdModal,
     handleAdReward,
     closeAdModal,
   } = useGameContext();
-
   const { location } = useLocationContext();
 
   // Keep track of other players for debugging/monitoring
@@ -62,6 +62,54 @@ export const Game = () => {
     [playerId, updateGameScore]
   );
 
+  const handleGeoObjectHit = useCallback(
+    (geoObjectId: string) => {
+      console.log('GeoObject hit:', geoObjectId);
+      const targetObject = geoObjects?.find((obj) => obj.id === geoObjectId);
+
+      if (!targetObject) return;
+
+      const wsService = WebSocketService.getInstance();
+      wsService.send({
+        type: MessageType.GEO_OBJECT_HIT,
+        playerId: playerId!,
+        data: {
+          geoObject: targetObject,
+          location: location,
+          kind: 'geoObject',
+        },
+      });
+
+      // Remove the object from the game context
+      setGeoObjects((prevObjects) =>
+        prevObjects.filter((obj) => obj.id !== geoObjectId)
+      );
+
+      updateGameScore({
+        type: 'GEO_OBJECT_HIT',
+        geoObjectId: geoObjectId,
+      });
+
+      // Play collection sound
+      const audio = new Audio('/assets/collect_sound.wav');
+      audio.play().catch(console.error);
+
+      // Show reward message if applicable
+      if (targetObject.metadata?.reward) {
+        const message = `+${targetObject.metadata.reward}`;
+        document.dispatchEvent(
+          new CustomEvent('showReward', {
+            detail: {
+              message,
+              position: { x: window.innerWidth / 2, y: window.innerHeight / 3 },
+            },
+          })
+        );
+      }
+    },
+    [playerId, geoObjects, location, setGeoObjects, updateGameScore]
+  );
+
   return (
     <div className="relative h-screen w-full overflow-hidden">
       {/* Base layer - Camera */}
@@ -72,7 +120,12 @@ export const Game = () => {
       {/* AR Layer */}
       {location && (
         <div className="absolute inset-0">
-          <ARView drones={drones} onDroneShoot={handleDroneHit} />
+          <ARView
+            drones={drones}
+            geoObjects={geoObjects}
+            onDroneShoot={handleDroneHit}
+            onGeoObjectHit={handleGeoObjectHit}
+          />
         </div>
       )}
 
@@ -108,7 +161,6 @@ export const Game = () => {
           </div>
         )}
 
-        {/* Ad Modal */}
         {/* Ad Modal */}
         {showAdModal && (
           <RewardAdModal
