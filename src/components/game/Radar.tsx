@@ -31,7 +31,7 @@ const Radar = () => {
     radius: number
   ) => {
     if (!location) {
-      console.log('Radar: Missing location or heading', { location, heading });
+      // console.log('Radar: Missing location or heading', { location, heading });
       return;
     }
 
