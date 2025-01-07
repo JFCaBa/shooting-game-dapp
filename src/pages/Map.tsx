@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { locationService } from '../services/LocationService';
+import { useLocationContext } from '../context/LocationContext';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
 
@@ -14,12 +14,12 @@ const containerStyle: React.CSSProperties = {
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const { location } = useLocationContext();
 
   useEffect(() => {
     const fetchLocationAndInitMap = async () => {
       try {
         // Get the current location
-        const location = await locationService.getCurrentLocation();
         const mapCenter = { lat: location.latitude, lng: location.longitude };
         setCenter(mapCenter);
 
