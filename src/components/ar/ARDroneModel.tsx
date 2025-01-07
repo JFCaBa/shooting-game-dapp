@@ -68,7 +68,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
-    const eyeLevelOffset = 5; // Adjust this value for desired height
+    const eyeLevelOffset = 1; // Adjust this value for desired height
     const initialPosition = modelRef.current.position.clone();
     initialPosition.y += eyeLevelOffset;
 

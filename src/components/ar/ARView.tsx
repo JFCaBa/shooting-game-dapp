@@ -276,9 +276,9 @@ const ARView: React.FC<ARViewProps> = ({
   const pullDownDrone = (drone: THREE.Group) => {
     const originalPosition = drone.position.clone();
     const targetPosition = new THREE.Vector3(
-      originalPosition.x,
+      originalPosition.x + 5,
       originalPosition.y - 5,
-      originalPosition.z
+      originalPosition.z - 5
     );
 
     const duration = 1;

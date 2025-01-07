@@ -8,7 +8,7 @@ mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
 const containerStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
-  position: 'relative', // Ensure the map container is positioned relative to its parent
+  position: 'relative',
 };
 
 const Map = () => {
