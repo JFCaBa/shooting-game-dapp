@@ -36,14 +36,14 @@ const ARView: React.FC<ARViewProps> = ({
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
-      50, // Narrower FOV to help with aiming
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
 
     // Set camera at eye level but moved back
-    camera.position.set(0, 1.6, 2); // Moved back in Z to help with aiming angle
+    camera.position.set(0, 1.6, 0); // Moved back in Z to help with aiming angle
     camera.rotation.set(0, 0, 0);
     cameraRef.current = camera;
 
