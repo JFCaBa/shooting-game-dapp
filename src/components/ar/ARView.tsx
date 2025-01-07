@@ -281,7 +281,7 @@ const ARView: React.FC<ARViewProps> = ({
       originalPosition.z
     );
 
-    const duration = 2;
+    const duration = 1;
     const startTime = performance.now();
 
     createSmokeEffect(drone.position);
@@ -344,7 +344,7 @@ const ARView: React.FC<ARViewProps> = ({
               key={drone.droneId}
               drone={drone}
               onHit={onDroneShoot}
-              modelUrl="/models/drone.glb"
+              modelUrl="/models/drone_four_rotor_one.glb"
               scene={sceneRef.current}
               camera={cameraRef.current}
             />

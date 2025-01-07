@@ -68,6 +68,10 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   const startAnimations = useCallback(() => {
     if (!modelRef.current) return;
 
+    const eyeLevelOffset = 5; // Adjust this value for desired height
+    const initialPosition = modelRef.current.position.clone();
+    initialPosition.y += eyeLevelOffset;
+
     // Initialize rotor animations
     const rotorNames = ['Rotor_F_R', 'Rotor_F_L', 'Rotor_R_R', 'Rotor_R_L'];
     modelRef.current.traverse((child) => {
@@ -80,13 +84,11 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
     const mainMixer = new THREE.AnimationMixer(modelRef.current);
     mixers.push(mainMixer);
 
-    const initialPosition = modelRef.current.position.clone();
-
     // Hover animation
     const hoverTrack = new THREE.VectorKeyframeTrack(
       '.position[y]',
       [0, 1, 2],
-      [initialPosition.y, initialPosition.y + 0.3, initialPosition.y]
+      [initialPosition.y, initialPosition.y + 1, initialPosition.y]
     );
 
     const hoverClip = new THREE.AnimationClip('hover', 2, [hoverTrack]);
@@ -96,7 +98,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
 
     // Patrol animation
     const patrolRadius = 5;
-    const patrolDuration = 8;
+    const patrolDuration = 6;
     const patrolPoints = Array.from({ length: 31 }, (_, i) => {
       const angle = (i / 30) * Math.PI * 2;
       return {

@@ -10,6 +10,7 @@ import GameStatus from '../components/game/GameStatus';
 import RewardAdModal from '../components/modals/RewardAdModal';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
+import { DroneType } from '../types/drone';
 
 export const Game = () => {
   const {
