@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GeoObject, LocationData } from '../types/game';
-import { locationService } from './LocationService';
+import { calculateDistance, calculateBearing } from '../utils/maths';
 
 export class GeoObjectManager {
   private static instance: GeoObjectManager;
@@ -32,7 +32,7 @@ export class GeoObjectManager {
     this.onHitCallback = callback;
   }
 
-  async spawnGeoObject(geoObject: GeoObject) {
+  async spawnGeoObject(geoObject: GeoObject, location: LocationData) {
     if (!this.scene) {
       console.error('Scene not initialized');
       return;
@@ -41,11 +41,7 @@ export class GeoObjectManager {
     console.log('Spawning GeoObject:', geoObject);
 
     try {
-      const userLocation = await locationService.getCurrentLocation();
-      const position = this.calculatePosition(
-        geoObject.coordinate,
-        userLocation
-      );
+      const position = this.calculatePosition(geoObject.coordinate, location);
 
       const node = this.createNode(geoObject, position);
       this.objects.set(geoObject.id, geoObject);
@@ -58,7 +54,7 @@ export class GeoObjectManager {
         id: geoObject.id,
         type: geoObject.type,
         position,
-        userLocation,
+        location,
         objectLocation: geoObject.coordinate,
       });
     } catch (error) {
@@ -111,14 +107,8 @@ export class GeoObjectManager {
     objectLocation: LocationData,
     userLocation: LocationData
   ): THREE.Vector3 {
-    const distance = locationService.calculateDistance(
-      userLocation,
-      objectLocation
-    );
-    const bearing = locationService.calculateBearing(
-      userLocation,
-      objectLocation
-    );
+    const distance = calculateDistance(userLocation, objectLocation);
+    const bearing = calculateBearing(userLocation, objectLocation);
 
     // Convert polar coordinates to Cartesian
     const radians = (bearing * Math.PI) / 180;

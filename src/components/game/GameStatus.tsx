@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocationContext } from '../../context/LocationContext';
 
 interface GameStatusProps {
   droneCount: number;
@@ -15,6 +16,8 @@ const GameStatus: React.FC<GameStatusProps> = ({
   isOnline,
   isWebSocketConnected,
 }) => {
+  const { location } = useLocationContext();
+
   // Network status indicator
   const getConnectionColor = (isConnected: boolean) => {
     return isConnected ? 'text-green-500' : 'text-red-500';
@@ -78,6 +81,15 @@ const GameStatus: React.FC<GameStatusProps> = ({
         >
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
           <circle cx="12" cy="12" r="3" />
+        </svg>
+
+        {/* Location status */}
+        <svg
+          className={`w-6 h-6 ${getConnectionColor(!!location)}`}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
         </svg>
       </div>
     </div>

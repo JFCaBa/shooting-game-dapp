@@ -1,13 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocationContext } from '../../context/LocationContext';
 import { useGameContext } from '../../context/GameContext';
-import { LocationService } from '../../services/LocationService';
+import { calculateDistance, calculateBearing } from '../../utils/maths';
 
 const Radar = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { location, heading } = useLocationContext();
   const { geoObjects } = useGameContext();
-  const locationService = LocationService.getInstance();
 
   const RADAR_RANGE = 500; // meters
 
@@ -43,15 +42,9 @@ const Radar = () => {
         accuracy: object.coordinate.accuracy,
       };
 
-      const distance = locationService.calculateDistance(
-        location,
-        objectLocation
-      );
+      const distance = calculateDistance(location, objectLocation);
       if (distance <= RADAR_RANGE) {
-        const bearing = locationService.calculateBearing(
-          location,
-          objectLocation
-        );
+        const bearing = calculateBearing(location, objectLocation);
         const relativeAngle =
           (((heading - bearing + 360) % 360) * Math.PI) / 180;
         const normalizedDistance = distance / RADAR_RANGE;

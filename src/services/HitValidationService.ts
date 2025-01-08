@@ -3,6 +3,7 @@
 
 import { LocationData } from '../types/game';
 import { LocationService } from './LocationService';
+import { calculateDistance, calculateBearing, toRadians } from '../utils/maths';
 
 interface HitValidation {
   isValid: boolean;
@@ -14,7 +15,7 @@ interface HitValidation {
 export class HitValidationService {
   private static instance: HitValidationService;
   private locationService: LocationService;
-  
+
   private readonly MAX_RANGE = 500; // meters
   private readonly MAX_ANGLE_ERROR = 30; // degrees
   private readonly BASE_DAMAGE = 1;
@@ -35,21 +36,21 @@ export class HitValidationService {
     shooterHeading: number,
     target: LocationData
   ): HitValidation {
-    const distance = this.locationService.calculateDistance(shooter, target);
-    
+    const distance = calculateDistance(shooter, target);
+
     // Check if target is in range
     if (distance > this.MAX_RANGE) {
       return {
         isValid: false,
         damage: 0,
         distance,
-        deviation: 0
+        deviation: 0,
       };
     }
 
     // Calculate actual bearing to target
-    const actualBearing = this.locationService.calculateBearing(shooter, target);
-    
+    const actualBearing = calculateBearing(shooter, target);
+
     // Calculate angle difference
     let angleDiff = Math.abs(shooterHeading - actualBearing);
     if (angleDiff > 180) {
@@ -57,7 +58,7 @@ export class HitValidationService {
     }
 
     // Calculate deviation in meters
-    const deviation = distance * Math.tan(this.locationService.toRadians(angleDiff));
+    const deviation = distance * Math.tan(toRadians(angleDiff));
 
     // Validate hit based on angle difference
     const isValid = angleDiff <= this.MAX_ANGLE_ERROR;
@@ -69,13 +70,13 @@ export class HitValidationService {
       isValid,
       damage,
       distance,
-      deviation
+      deviation,
     };
   }
 
   private calculateDamage(distance: number): number {
     // Damage decreases linearly with distance
-    const damageFalloff = 1 - (distance / this.MAX_RANGE);
+    const damageFalloff = 1 - distance / this.MAX_RANGE;
     return Math.max(this.BASE_DAMAGE * damageFalloff, this.BASE_DAMAGE);
   }
 }
