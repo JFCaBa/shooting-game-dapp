@@ -314,7 +314,7 @@ const ARView: React.FC<ARViewProps> = ({
   // Spawn GeoObjects
   useEffect(() => {
     geoObjects.forEach((geoObject) => {
-      geoObjectManager.spawnGeoObject(geoObject);
+      geoObjectManager.spawnGeoObject(geoObject, location);
     });
   }, [geoObjects]);
 

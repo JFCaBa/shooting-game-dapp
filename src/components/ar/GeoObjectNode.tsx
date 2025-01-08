@@ -78,11 +78,11 @@ const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
         modelRef.current = model;
         scene.add(model);
 
-        console.log('GeoObject loaded:', {
-          id: geoObject.id,
-          type: geoObject.type,
-          position: model.position,
-        });
+        // console.log('GeoObject loaded:', {
+        //   id: geoObject.id,
+        //   type: geoObject.type,
+        //   position: model.position,
+        // });
       },
       undefined,
       (error) => console.error('Error loading geoObject model:', geoObject.type)

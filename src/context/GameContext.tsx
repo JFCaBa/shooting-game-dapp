@@ -1,4 +1,10 @@
 import { useLocationContext } from '../context/LocationContext';
+import {
+  calculateBearing,
+  calculateDistance,
+  calculateDamage,
+  toRadians,
+} from '../utils/maths';
 import React, {
   createContext,
   useContext,
@@ -8,7 +14,6 @@ import React, {
   useCallback,
 } from 'react';
 import { WebSocketService } from '../services/WebSocketService';
-import { locationService } from '../services/LocationService';
 import {
   GameMessage,
   Player,
@@ -81,47 +86,6 @@ const INITIAL_STATE: GameState = {
 const RELOAD_TIME = 3000;
 const RESPAWN_TIME = 60000;
 
-// MARK: -  Math utilities
-const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
-const toDegrees = (radians: number): number => (radians * 180) / Math.PI;
-
-const calculateDistance = (from: LocationData, to: LocationData): number => {
-  const R = 6371e3;
-  const φ1 = toRadians(from.latitude);
-  const φ2 = toRadians(to.latitude);
-  const Δφ = toRadians(to.latitude - from.latitude);
-  const Δλ = toRadians(to.longitude - from.longitude);
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-const calculateBearing = (from: LocationData, to: LocationData): number => {
-  const φ1 = toRadians(from.latitude);
-  const φ2 = toRadians(to.latitude);
-  const Δλ = toRadians(to.longitude - from.longitude);
-
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x =
-    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-  const θ = Math.atan2(y, x);
-  return (toDegrees(θ) + 360) % 360;
-};
-
-const calculateDamage = (
-  distance: number,
-  maxRange: number,
-  baseDamage: number
-): number => {
-  const damageFalloff = 1 - distance / maxRange;
-  return Math.max(baseDamage * damageFalloff, baseDamage);
-};
-
 // MARK: - Game Provider
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -138,11 +102,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('Validating hit:', shooterLocation, shooterHeading);
 
       try {
-        const playerLocation = location
-          ? location
-          : await locationService.getCurrentLocation();
-        console.log('Player location:', playerLocation);
-        if (!playerLocation) {
+        if (!location) {
           return { isValid: false, damage: 0, distance: 0, deviation: 0 };
         }
 
@@ -150,19 +110,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         const MAX_ANGLE_ERROR = 30;
         const BASE_DAMAGE = 1;
 
-        const distance = calculateDistance(shooterLocation, playerLocation);
+        const distance = calculateDistance(shooterLocation, location);
+        console.log('Distance: ', distance);
 
         if (distance > MAX_RANGE) {
           return { isValid: false, damage: 0, distance, deviation: 0 };
         }
 
-        const actualBearing = calculateBearing(shooterLocation, playerLocation);
+        const actualBearing = calculateBearing(shooterLocation, location);
         let angleDiff = Math.abs(shooterHeading - actualBearing);
         if (angleDiff > 180) {
           angleDiff = 360 - angleDiff;
         }
 
         const deviation = distance * Math.tan(toRadians(angleDiff));
+        console.log('Deviation: ', deviation);
         const isValid = angleDiff <= MAX_ANGLE_ERROR;
         const damage = isValid
           ? calculateDamage(distance, MAX_RANGE, BASE_DAMAGE)
