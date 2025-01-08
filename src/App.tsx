@@ -28,9 +28,9 @@ const AuthBanner = ({
   onClose: () => void;
   onCreateUser: () => void;
 }) => (
-  <div className="absolute top-0 left-0 right-0 bg-game-secondary bg-opacity-90 p-4 text-white">
+  <div className="absolute top-40 left-0 right-0 bg-game-secondary bg-opacity-90 p-4 text-white">
     <div className="flex justify-between items-center">
-      <p>Create an account to access this feature</p>
+      <p>Access restricted</p>
       <div className="space-x-4">
         <button
           onClick={onCreateUser}
