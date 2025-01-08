@@ -19,6 +19,7 @@ import {
   DroneData,
   GeoObject,
 } from '../types/game';
+import { generateTemporaryId } from '../utils/uuid';
 
 interface GameState {
   players: Player[];
@@ -320,7 +321,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleGameMessage = useCallback(
     async (message: GameMessage, wsInstance: WebSocketService) => {
-      console.log('Received message:', message);
+      // console.log('Received message:', message);
 
       // When WebSocket connects, send join message
       if (message.type === MessageType.WEBSOCKET_CONNECTED) {
@@ -423,7 +424,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
 
         case MessageType.NEW_DRONE:
-          console.log('New drone:', message.data);
+          // console.log('New drone:', message.data);
 
           if (message.data && message.playerId === state.playerId) {
             resetDroneTimer();
@@ -733,28 +734,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
-};
-
-// MARK: - generateTemporaryId
-const generateTemporaryId = () => {
-  const storedId = localStorage.getItem('playerId');
-  if (storedId) {
-    return storedId;
-  }
-
-  const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-      const random = (crypto.getRandomValues(new Uint8Array(1))[0] & 0xf) / 16;
-      if (char === 'x') {
-        return Math.floor(random * 16).toString(16);
-      }
-      return ((Math.floor(random * 16) & 0x3) | 0x8).toString(16);
-    });
-  };
-
-  const newId = generateUUID();
-  localStorage.setItem('playerId', newId);
-  return newId;
 };
 
 // MARK: - useGameContext

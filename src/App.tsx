@@ -89,6 +89,7 @@ const GameLayout = () => {
 
   const handleSignOut = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('playerId');
     setCurrentScreen('game');
   };
 

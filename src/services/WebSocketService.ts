@@ -69,7 +69,7 @@ export class WebSocketService {
     this.socket.onmessage = (event) => {
       try {
         if (event.data === 'pong') {
-          console.log('WebSocket: Received pong');
+          // console.log('WebSocket: Received pong');
           return;
         }
 
@@ -156,13 +156,13 @@ export class WebSocketService {
 
   private startPingTimer() {
     this.stopPingTimer();
-    console.log('WebSocket: Starting ping timer');
+    // console.log('WebSocket: Starting ping timer');
     this.pingTimer = setInterval(() => this.sendPing(), 30000);
   }
 
   private stopPingTimer() {
     if (this.pingTimer) {
-      console.log('WebSocket: Stopping ping timer');
+      // console.log('WebSocket: Stopping ping timer');
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
@@ -170,7 +170,7 @@ export class WebSocketService {
 
   private sendPing() {
     if (this.socket && this.isConnected) {
-      console.log('WebSocket: Sending ping');
+      // console.log('WebSocket: Sending ping');
       this.socket.send('ping');
     }
   }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
+import { generateTemporaryId } from '../utils/uuid';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,7 +9,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const playerId = localStorage.getItem('playerId');
+  let playerId = generateTemporaryId();
 
   const handleForgotPassword = async () => {
     if (!email) {
@@ -83,6 +84,8 @@ const Login = () => {
 
       const data = await response.json();
       localStorage.setItem('token', data.token);
+      localStorage.setItem('playerId', data.playerId);
+
       navigate('/'); // Navigate to main game screen after successful login
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Login failed');
