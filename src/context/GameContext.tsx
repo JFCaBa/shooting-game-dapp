@@ -25,6 +25,7 @@ import {
   GeoObject,
 } from '../types/game';
 import { generateTemporaryId } from '../utils/uuid';
+import { HitValidationService } from '../services/HitValidationService';
 
 interface GameState {
   players: Player[];
@@ -96,48 +97,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const [, setGameStarted] = useState(false);
   const wsInstanceRef = useRef<WebSocketService | null>(null);
   const { location } = useLocationContext();
-
-  const validateHit = useCallback(
-    async (shooterLocation: LocationData, shooterHeading: number) => {
-      console.log('Validating hit:', shooterLocation, shooterHeading);
-
-      try {
-        if (!location) {
-          return { isValid: false, damage: 0, distance: 0, deviation: 0 };
-        }
-
-        const MAX_RANGE = 500;
-        const MAX_ANGLE_ERROR = 30;
-        const BASE_DAMAGE = 1;
-
-        const distance = calculateDistance(shooterLocation, location);
-        console.log('Distance: ', distance);
-
-        if (distance > MAX_RANGE) {
-          return { isValid: false, damage: 0, distance, deviation: 0 };
-        }
-
-        const actualBearing = calculateBearing(shooterLocation, location);
-        let angleDiff = Math.abs(shooterHeading - actualBearing);
-        if (angleDiff > 180) {
-          angleDiff = 360 - angleDiff;
-        }
-
-        const deviation = distance * Math.tan(toRadians(angleDiff));
-        console.log('Deviation: ', deviation);
-        const isValid = angleDiff <= MAX_ANGLE_ERROR;
-        const damage = isValid
-          ? calculateDamage(distance, MAX_RANGE, BASE_DAMAGE)
-          : 0;
-
-        return { isValid, damage, distance, deviation };
-      } catch (error) {
-        console.error('Error fetching location:', error);
-        return { isValid: false, damage: 0, distance: 0, deviation: 0 };
-      }
-    },
-    [location]
-  );
+  const hitValidationService = HitValidationService.getInstance();
 
   // MARK: - updateGameScore
 
@@ -239,9 +199,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       console.log('Handling shot:', shootData);
-      const hitValidation = await validateHit(
+      const hitValidation = await hitValidationService.validateHit(
         shootData.location!,
-        shootData.heading
+        shootData.heading,
+        location
       );
       const type = hitValidation.isValid
         ? MessageType.HIT_CONFIRMED
@@ -266,7 +227,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       wsInstance.send(shootMessage);
       handleHit(hitValidation.damage);
     },
-    [state.playerId, validateHit, handleHit]
+    [state.playerId, handleHit]
   );
 
   const handleGeoObjectUpdate = useCallback((message: GameMessage) => {
