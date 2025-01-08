@@ -188,6 +188,41 @@ const Map = () => {
     });
   }, [geoObjects]);
 
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const bounds = new mapboxgl.LngLatBounds();
+
+    // Include current player location
+    if (location) {
+      bounds.extend([location.longitude, location.latitude]);
+    }
+
+    // Include other players' locations
+    players.forEach((player) => {
+      if (player.location && player.playerId !== playerId) {
+        bounds.extend([player.location.longitude, player.location.latitude]);
+      }
+    });
+
+    // Include GeoObjects locations
+    geoObjects.forEach((geoObject) => {
+      bounds.extend([
+        geoObject.coordinate.longitude,
+        geoObject.coordinate.latitude,
+      ]);
+    });
+
+    // Fit map to the calculated bounds
+    if (!bounds.isEmpty()) {
+      mapRef.current.fitBounds(bounds, {
+        padding: 50, // Add padding around the edges of the viewport
+        maxZoom: 15, // Optional: Limit the zoom level
+        duration: 1000, // Animation duration in milliseconds
+      });
+    }
+  }, [location, players, geoObjects]);
+
   if (!location) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-game-dark text-white">
