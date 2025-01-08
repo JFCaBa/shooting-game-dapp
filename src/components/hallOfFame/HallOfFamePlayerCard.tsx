@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { HallOfFamePlayer } from '../../types/hallOfFame';
-import { Trophy, Target, Crosshair } from 'lucide-react';
+import { Cpu, Target, Crosshair } from 'lucide-react';
 
 interface HallOfFamePlayerCardProps {
   player: HallOfFamePlayer;
@@ -46,7 +46,7 @@ const HallOfFamePlayerCard: React.FC<HallOfFamePlayerCardProps> = ({
             {/* Drone Hits */}
             {stats.droneHits !== undefined && (
               <div className="flex items-center space-x-1">
-                <Trophy className="w-4 h-4 text-yellow-500" />
+                <Cpu className="w-4 h-4 text-yellow-500" />
                 <span className="text-gray-300">{stats.droneHits}</span>
               </div>
             )}
