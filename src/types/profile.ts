@@ -1,9 +1,9 @@
 interface UserDetails {
-  nickName: string | null;
+  nickname: string | null;
   email: string | null;
   _id: string;
 }
 
-export interface ProfileType {
+export interface ProfileResponse {
   details: UserDetails;
 }

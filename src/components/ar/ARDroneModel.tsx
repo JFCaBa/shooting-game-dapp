@@ -176,11 +176,11 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         scene.add(model);
         startAnimations();
 
-        console.log('Drone model loaded:', {
-          droneId: drone.droneId,
-          position: model.position,
-          // boundingBox: boundingBox.getWorldPosition(new THREE.Vector3()),
-        });
+        // console.log('Drone model loaded:', {
+        //   droneId: drone.droneId,
+        //   position: model.position,
+        //   // boundingBox: boundingBox.getWorldPosition(new THREE.Vector3()),
+        // });
       },
       undefined,
       (error) => console.error('Error loading drone model:', error)

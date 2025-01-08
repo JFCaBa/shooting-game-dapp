@@ -10,7 +10,7 @@ export interface HallOfFamePlayer {
   stats: Stats;
   _id: string;
   playerId?: string;
-  nickName?: string;
+  nickname?: string;
 }
 
 export type HallOfFameResponse = HallOfFamePlayer[];

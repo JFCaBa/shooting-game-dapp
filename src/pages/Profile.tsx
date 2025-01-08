@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
-
-import { ProfileType } from '../types/profile';
+import { ProfileService } from '../services/ProfileService';
 
 interface UserProfile {
   nickname: string;
@@ -23,6 +22,8 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const profileService = ProfileService.getInstance();
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -34,77 +35,45 @@ const Profile = () => {
   }, [profile]);
 
   const fetchProfile = async () => {
-    const token = localStorage.getItem('token');
     const playerId = localStorage.getItem('playerId');
 
-    if (!token || !playerId) {
+    if (!playerId) {
       navigate('/settings');
       return;
     }
 
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/v1/players/${playerId}/details`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-
-      const data = await response.json();
-      console.log('Profile response:', data);
+      const data = await profileService.getProfile(playerId);
 
       if (data.details) {
         setProfile({
           playerId: playerId,
-          nickname: data.details.nickName || '',
+          nickname: data.details.nickname || '',
           email: data.details.email || '',
         });
-        setNickname(data.details.nickName || '');
+        setNickname(data.details.nickname || '');
       } else {
         throw new Error('Invalid profile data structure');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
       alert('Failed to load profile');
+      setProfile({
+        playerId: playerId,
+        nickname: '',
+        email: '',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUpdateProfile = async () => {
-    const token = localStorage.getItem('token');
     const playerId = localStorage.getItem('playerId');
+    if (!playerId) return;
 
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/v1/players/updatePlayerDetails`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            playerId,
-            userData: {
-              details: {
-                nickName: nickname,
-              },
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-
+      await profileService.updateDetails(playerId, nickname);
       setProfile((prev) => (prev ? { ...prev, nickname } : null));
       setIsEditing(false);
       alert('Profile updated successfully');
@@ -120,34 +89,15 @@ const Profile = () => {
       return;
     }
 
-    const token = localStorage.getItem('token');
     const playerId = localStorage.getItem('playerId');
+    if (!playerId) return;
 
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/v1/players/updatePassword`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            playerId,
-            userData: {
-              details: {
-                password: newPassword,
-              },
-            },
-            currentPassword,
-          }),
-        }
+      await profileService.updatePassword(
+        playerId,
+        currentPassword,
+        newPassword
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to update password');
-      }
-
       setShowPasswordForm(false);
       setCurrentPassword('');
       setNewPassword('');
