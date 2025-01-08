@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 import { GameProvider } from './context/GameContext';
 import { LocationProvider } from './context/LocationContext';
+import { AchievementsProvider } from './context/AchievementsContext';
 import { Game } from './pages/Game';
 import Map from './pages/Map';
 import Inventory from './pages/Inventory';
@@ -14,6 +15,7 @@ import Settings from './pages/Settings';
 import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import Achievements from './pages/Achievements';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
@@ -74,6 +76,7 @@ const GameLayout = () => {
       screen === 'game' ||
       screen === 'map' ||
       screen === 'inventory' ||
+      screen === 'achievements' ||
       screen === 'settings'
     ) {
       setCurrentScreen(screen);
@@ -101,6 +104,8 @@ const GameLayout = () => {
         return <Map />;
       case 'inventory':
         return <Inventory />;
+      case 'achievements':
+        return <Achievements />;
       case 'settings':
         return <Settings onSignOut={handleSignOut} />;
       default:
@@ -153,14 +158,16 @@ const App = () => {
     <Router>
       <LocationProvider>
         <GameProvider>
-          <DevicePermissionsHandler>
-            <Routes>
-              <Route path="/create-user" element={<CreateUser />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/*" element={<GameLayout />} />
-            </Routes>
-          </DevicePermissionsHandler>
+          <AchievementsProvider>
+            <DevicePermissionsHandler>
+              <Routes>
+                <Route path="/create-user" element={<CreateUser />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/*" element={<GameLayout />} />
+              </Routes>
+            </DevicePermissionsHandler>
+          </AchievementsProvider>
         </GameProvider>
       </LocationProvider>
     </Router>
