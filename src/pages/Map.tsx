@@ -5,6 +5,7 @@ import { useLocationContext } from '../context/LocationContext';
 import { useGameContext } from '../context/GameContext';
 import { createRoot } from 'react-dom/client';
 import PlayerMarker from '../components/map/PlayerMarker';
+import GeoObjectMarker from '../components/map/GeoObjectMarker';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 
@@ -12,17 +13,18 @@ mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
 
 const containerStyle: React.CSSProperties = {
   width: '100%',
-  height: 'calc(100% - 170px)', // Deduct 80px from the total height
+  height: 'calc(100% - 170px)',
   position: 'relative',
-  marginBottom: '170px', // Fixed spacing at the bottom
+  marginBottom: '170px',
 };
 
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRefs = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  const geoObjectMarkerRefs = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const { location } = useLocationContext();
-  const { players, playerId } = useGameContext();
+  const { players, playerId, geoObjects } = useGameContext();
 
   // Initialize map once
   useEffect(() => {
@@ -73,16 +75,35 @@ const Map = () => {
 
     return () => {
       Object.values(markerRefs.current).forEach((marker) => marker.remove());
+      Object.values(geoObjectMarkerRefs.current).forEach((marker) =>
+        marker.remove()
+      );
       map.remove();
       mapRef.current = null;
     };
-  }, []); // Empty dependency array - only run once
+  }, []);
 
-  // Handle other players updates - only when players array changes
+  // Update current player position
+  useEffect(() => {
+    if (!location || !markerRefs.current['current']) return;
+
+    markerRefs.current['current'].setLngLat([
+      location.longitude,
+      location.latitude,
+    ]);
+
+    if (mapRef.current) {
+      mapRef.current.easeTo({
+        center: [location.longitude, location.latitude],
+        duration: 1000,
+      });
+    }
+  }, [location]);
+
+  // Handle other players updates
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Update or create markers for other players
     players.forEach((player) => {
       if (!player.location || player.playerId === playerId) return;
 
@@ -117,7 +138,55 @@ const Map = () => {
         delete markerRefs.current[markerId];
       }
     });
-  }, [players]); // Only react to players array changes
+  }, [players]);
+
+  // Handle GeoObjects updates
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    console.log('GeoObjects:', geoObjects); // Debugging geoObjects data
+
+    geoObjects.forEach((geoObject) => {
+      const markerId = geoObject.id;
+      const markerPosition = [
+        geoObject.coordinate.longitude,
+        geoObject.coordinate.latitude,
+      ];
+
+      console.log(`Creating GeoObject: ${markerId}`, markerPosition);
+      const markerElement = document.createElement('div');
+      const root = createRoot(markerElement);
+      root.render(
+        <GeoObjectMarker
+          geoObject={geoObject}
+          onClick={() => {
+            if (mapRef.current) {
+              mapRef.current.flyTo({
+                center: markerPosition,
+                zoom: 18,
+                duration: 1000,
+              });
+            }
+          }}
+        />
+      );
+
+      geoObjectMarkerRefs.current[markerId] = new mapboxgl.Marker({
+        element: markerElement,
+      })
+        .setLngLat(markerPosition)
+        .addTo(mapRef.current);
+    });
+
+    // Clean-up markers for removed GeoObjects
+    Object.keys(geoObjectMarkerRefs.current).forEach((markerId) => {
+      if (!geoObjects.find((obj) => obj.id === markerId)) {
+        console.log(`Removing GeoObject: ${markerId}`);
+        geoObjectMarkerRefs.current[markerId].remove();
+        delete geoObjectMarkerRefs.current[markerId];
+      }
+    });
+  }, [geoObjects]);
 
   if (!location) {
     return (
@@ -125,7 +194,7 @@ const Map = () => {
         <div className="text-center">
           <p className="text-xl">Getting your location...</p>
           <p className="text-sm text-gray-400 mt-2">
-            Check locations services if it takes too long
+            Check location services if it takes too long
           </p>
         </div>
       </div>
