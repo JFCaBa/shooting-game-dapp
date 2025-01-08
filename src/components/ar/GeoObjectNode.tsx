@@ -8,6 +8,7 @@ interface GeoObjectNodeProps {
   onHit?: (id: string) => void;
   scene: THREE.Scene;
   camera: THREE.Camera;
+  onMounted?: (object: THREE.Object3D) => void;
 }
 
 const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
@@ -15,6 +16,7 @@ const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
   onHit,
   scene,
   camera,
+  onMounted,
 }) => {
   const modelRef = useRef<THREE.Group>();
   const isDestroyedRef = useRef(false);
@@ -78,11 +80,7 @@ const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
         modelRef.current = model;
         scene.add(model);
 
-        // console.log('GeoObject loaded:', {
-        //   id: geoObject.id,
-        //   type: geoObject.type,
-        //   position: model.position,
-        // });
+        onMounted?.(model);
       },
       undefined,
       (error) => console.error('Error loading geoObject model:', geoObject.type)
