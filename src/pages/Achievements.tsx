@@ -25,12 +25,6 @@ const Achievements: React.FC = () => {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-white">Achievements</h1>
-            <button
-              onClick={() => navigate('/hallOfFame')}
-              className="px-4 py-2 bg-game-primary rounded-lg hover:bg-opacity-80 text-white"
-            >
-              Hall of Fame
-            </button>
           </div>
 
           {/* Achievements Grid */}

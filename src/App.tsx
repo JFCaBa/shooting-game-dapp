@@ -16,6 +16,7 @@ import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Achievements from './pages/Achievements';
+import HallOfFame from './pages/HallOfFame';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
@@ -75,8 +76,8 @@ const GameLayout = () => {
     if (
       screen === 'game' ||
       screen === 'map' ||
-      screen === 'inventory' ||
       screen === 'achievements' ||
+      screen === 'hallOfFame' ||
       screen === 'settings'
     ) {
       setCurrentScreen(screen);
@@ -106,6 +107,8 @@ const GameLayout = () => {
         return <Inventory />;
       case 'achievements':
         return <Achievements />;
+      case 'hallOfFame':
+        return <HallOfFame />;
       case 'settings':
         return <Settings onSignOut={handleSignOut} />;
       default:
