@@ -6,6 +6,7 @@ import { GeoObject } from '../../types/game';
 import { ARSceneManager } from './scene/ARSceneManager';
 import { HitDetector } from './hit-detection/HitDetector';
 import { SmokeEffect } from './effects/SmokeEffect';
+import { PullDownEffect } from './effects/PullDownEffect';
 import ARDroneModel from './ARDroneModel';
 import GeoObjectNode from './GeoObjectNode';
 import Camera from '../game/Camera';
@@ -30,6 +31,7 @@ const ARView: React.FC<ARViewProps> = ({
   const sceneManagerRef = useRef<ARSceneManager>();
   const hitDetectorRef = useRef<HitDetector>();
   const effectsRef = useRef<Set<SmokeEffect>>(new Set());
+  const effectDownRef = useRef<Set<PullDownEffect>>(new Set());
   const isDestroyedRef = useRef(false);
   const { location, heading } = useLocationContext();
 
@@ -42,17 +44,68 @@ const ARView: React.FC<ARViewProps> = ({
     });
   }, [geoObjects, location]);
 
-  // Initialize scene and hit detection
+  // Create smoke effect
+  const createSmokeEffect = useCallback((position: THREE.Vector3) => {
+    if (!sceneManagerRef.current?.isActive()) return;
+
+    const effect = new SmokeEffect(
+      sceneManagerRef.current.getScene(),
+      position,
+      {
+        color: 0xff0000,
+        particleCount: 75,
+        duration: 2000,
+      }
+    );
+
+    effectsRef.current.add(effect);
+    setTimeout(() => effectsRef.current.delete(effect), 1000);
+  }, []);
+
+  // Create smoke effect
+  const createPullDownEffect = useCallback((drone: THREE.Group) => {
+    if (!sceneManagerRef.current?.isActive()) return;
+
+    const effect = new PullDownEffect(
+      sceneManagerRef.current.getScene(),
+      drone
+    );
+
+    effectDownRef.current.add(effect);
+    setTimeout(() => effectDownRef.current.delete(effect), 1000);
+  }, []);
+
+  // Handle shooting
+  const handleShoot = useCallback(() => {
+    if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive()) return;
+
+    hitDetectorRef.current.checkHit(
+      (droneId: string, hitPosition: THREE.Vector3, drone: THREE.Group) => {
+        if (onDroneShoot) {
+          onDroneShoot(droneId);
+          createSmokeEffect(hitPosition);
+          createPullDownEffect(drone);
+        }
+      },
+      (geoObjectId: string, hitPosition: THREE.Vector3) => {
+        if (onGeoObjectHit) {
+          onGeoObjectHit(geoObjectId);
+          createSmokeEffect(hitPosition);
+        }
+      }
+    );
+  }, [onDroneShoot, onGeoObjectHit, createSmokeEffect, createPullDownEffect]);
+
+  // Initialize scene
   useEffect(() => {
-    console.log('Initializing AR View');
     if (!containerRef.current) return;
 
     try {
-      // Create scene manager
+      // Initialize scene manager
       const sceneManager = new ARSceneManager(containerRef.current);
       sceneManagerRef.current = sceneManager;
 
-      // Create hit detector
+      // Initialize hit detector
       hitDetectorRef.current = new HitDetector(
         sceneManager.getScene(),
         sceneManager.getCamera()
@@ -60,7 +113,6 @@ const ARView: React.FC<ARViewProps> = ({
 
       // Start animation loop
       sceneManager.startAnimation();
-      console.log('AR scene initialized and animation started');
 
       // Handle window resize
       const handleResize = () => {
@@ -78,18 +130,12 @@ const ARView: React.FC<ARViewProps> = ({
         (DeviceOrientationEvent as any)
           .requestPermission()
           .then((response: string) => {
-            if (response === 'granted') {
-              console.log('Device orientation permission granted');
-            } else {
-              console.warn('Device orientation permission denied');
-            }
+            console.log('Device orientation permission:', response);
           })
           .catch(console.error);
       }
 
-      // Cleanup function
       return () => {
-        console.log('Cleaning up AR View');
         isDestroyedRef.current = true;
         window.removeEventListener('resize', handleResize);
 
@@ -103,7 +149,6 @@ const ARView: React.FC<ARViewProps> = ({
           sceneManagerRef.current = undefined;
         }
 
-        // Clear hit detector
         hitDetectorRef.current = undefined;
       };
     } catch (error) {
@@ -112,28 +157,38 @@ const ARView: React.FC<ARViewProps> = ({
     }
   }, []);
 
-  // Create debug sphere to verify rendering
+  // Setup shoot event listener
   useEffect(() => {
-    if (sceneManagerRef.current?.isActive()) {
-      const geometry = new THREE.SphereGeometry(0.5, 32, 32);
-      const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(0, 1.6, -3); // Position in front of camera
-      sceneManagerRef.current.getScene().add(sphere);
-      console.log('Debug sphere added to scene');
+    document.addEventListener('gameShoot', handleShoot);
+    return () => document.removeEventListener('gameShoot', handleShoot);
+  }, [handleShoot]);
 
-      return () => {
-        if (sceneManagerRef.current?.isActive()) {
-          sceneManagerRef.current.getScene().remove(sphere);
-          geometry.dispose();
-          material.dispose();
+  // Check WebGL support
+  useEffect(() => {
+    const checkWebGL = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl =
+          canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) {
+          throw new Error('WebGL not supported');
         }
-      };
-    }
+      } catch (e) {
+        console.error('WebGL not supported:', e);
+        throw new Error('WebGL is not supported in this browser');
+      }
+    };
+    checkWebGL();
   }, []);
 
-  // Rest of the component implementation...
-  // (Keep the existing handleShoot, createSmokeEffect, and render methods)
+  // Location check
+  if (!location) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 text-white">
+        <p>Waiting for location access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-screen w-full overflow-hidden">

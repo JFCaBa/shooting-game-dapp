@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 
-type DroneHitCallback = (droneId: string, hitPosition: THREE.Vector3) => void;
+type DroneHitCallback = (
+  droneId: string,
+  hitPosition: THREE.Vector3,
+  drone: THREE.Group
+) => void;
 type GeoObjectHitCallback = (
   geoObjectId: string,
   hitPosition: THREE.Vector3
@@ -24,8 +28,8 @@ export class HitDetector {
     const crosshair = new THREE.Vector2(0, 0.33);
     this.raycaster.setFromCamera(crosshair, this.camera);
 
-    const targetMeshes = this.getTargetMeshes();
-    const intersects = this.raycaster.intersectObjects(targetMeshes);
+    const targetGroup = this.getTargetMeshes();
+    const intersects = this.raycaster.intersectObjects(targetGroup);
 
     if (intersects.length > 0) {
       this.processHit(intersects[0], onDroneHit, onGeoObjectHit);
@@ -71,7 +75,7 @@ export class HitDetector {
       }
       const droneId = hitObject.userData.droneId;
       if (droneId) {
-        onDroneHit(droneId, hitPosition);
+        onDroneHit(droneId, hitPosition, hitObject as THREE.Group);
       }
     } else if (hitObject.name?.startsWith('HitBox_')) {
       const geoObjectId = hitObject.userData.geoObjectId;
