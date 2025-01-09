@@ -222,7 +222,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       };
 
-      console.log('Sending shoot confirmation message:', shootMessage);
       wsInstance.send(shootMessage);
       handleHit(hitValidation.damage);
     },
