@@ -193,6 +193,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         shootData = message.data as ShootData;
       }
 
+      if (!shootData.location) {
+        return;
+      }
+
       console.log('Handling shot:', shootData);
       const hitValidation = await hitValidationService.validateHit(
         shootData.location!,
