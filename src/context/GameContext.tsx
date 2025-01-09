@@ -138,7 +138,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  // MARK: - Game logic
+  // MARK: - handleHit
+
   const handleHit = useCallback((damage: number) => {
     setState((prev) => {
       const newLives = Math.max(0, prev.currentLives - damage);
@@ -182,6 +183,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ...prev, droneTimer: timer };
     });
   }, []);
+
+  // MARK: - handleShoot
 
   const handleShoot = useCallback(
     async (
@@ -227,6 +230,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [state.playerId, handleHit, hitValidationService, location]
   );
+
+  // MARK: - handleGeoObjectUpdate
 
   const handleGeoObjectUpdate = useCallback((message: GameMessage) => {
     if (message.data) {
@@ -414,6 +419,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // MARK: - showReward
+
   interface ShowReward {
     (reward: number): void;
   }
@@ -466,16 +472,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       handleGameMessage(message, wsInstance);
     wsInstance.addMessageListener(messageHandler);
     wsInstance.connect(); // Start connection
-
-    // return () => {
-    //   console.log('Cleaning up WebSocket connection');
-    //   if (wsInstanceRef.current) {
-    //     wsInstanceRef.current.removeMessageListener(messageHandler);
-    //     wsInstanceRef.current.disconnect();
-    //     wsInstanceRef.current = null;
-    //   }
-    // };
   }, [state.playerId, handleGameMessage]);
+
+  // MARK: - Ammo/Lives check
+  useEffect(() => {
+    if (state.currentAmmo <= 0) {
+      state.showAdModal = 'ammo';
+    }
+    if (state.currentLives <= 0) {
+      state.showAdModal = 'lives';
+    }
+  }, [state.currentAmmo]);
 
   // MARK: - sendReloadRequest
 
@@ -583,18 +590,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // Check ammo and show modal if needed
-      if (state.currentAmmo <= 0) {
-        console.log('🚫 No ammo left, showing ad modal');
-        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
-        return;
-      }
-
       // Update ammo count
       setState((prev) => {
         const newAmmo = Math.max(0, prev.currentAmmo - 1);
         // Show ad modal when ammo depleted
         if (newAmmo === 0) {
+          console.log('🚫 No ammo left, showing ad modal');
           return {
             ...prev,
             currentAmmo: newAmmo,
@@ -625,6 +626,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [state.isAlive, state.isReloading, state.currentAmmo, state.playerId]
   );
+
+  // MARK: - handleGeoObjectShootConfirmed
 
   const handleGeoObjectShootConfirmed = (geoObject: GeoObject) => {
     document.dispatchEvent(
