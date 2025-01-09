@@ -477,16 +477,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   // MARK: - sendReloadRequest
 
   const sendReloadRequest = useCallback(() => {
+    const playerId = localStorage.getItem('playerId');
     const wsInstance = WebSocketService.getInstance();
 
     // Send reload message to server only once
     const reloadMessage: GameMessage = {
       type: MessageType.RELOAD,
-      playerId: state.playerId,
+      playerId: playerId,
     };
 
     wsInstance.send(reloadMessage);
-  }, [state.playerId]);
+  }, []);
 
   // MARK: - performReload
 
@@ -504,7 +505,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('📡 Sent reload message to server');
       sendReloadRequest();
     }, RELOAD_TIME);
-  }, [state.isReloading, state.playerId, state.maxAmmo, sendReloadRequest]);
+  }, [sendReloadRequest]);
 
   // MARK: - handleAdReward
 
@@ -559,7 +560,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         showAdModal: null,
       };
     });
-  }, [performReload]);
+  }, [performReload, RESPAWN_TIME]);
 
   // Rename reload to match its usage as a public method
   const reload = performReload;
