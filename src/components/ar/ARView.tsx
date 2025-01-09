@@ -31,11 +31,10 @@ const ARView: React.FC<ARViewProps> = ({
   const sceneManagerRef = useRef<ARSceneManager>();
   const hitDetectorRef = useRef<HitDetector>();
   const effectsRef = useRef<Set<SmokeEffect>>(new Set());
-  const effectDownRef = useRef<Set<PullDownEffect>>(new Set());
   const isDestroyedRef = useRef(false);
-  const { location, heading } = useLocationContext();
+  const { location } = useLocationContext();
 
-  // Filter visible geo objects based on distance
+  // MARK: - Filter visible geo objects based on distance
   const visibleGeoObjects = useMemo(() => {
     if (!location) return [];
     return geoObjects.filter((geoObject) => {
@@ -44,7 +43,7 @@ const ARView: React.FC<ARViewProps> = ({
     });
   }, [geoObjects, location]);
 
-  // Create smoke effect
+  // MARK: - Create smoke effect
   const createSmokeEffect = useCallback((position: THREE.Vector3) => {
     if (!sceneManagerRef.current?.isActive()) return;
 
@@ -62,20 +61,7 @@ const ARView: React.FC<ARViewProps> = ({
     setTimeout(() => effectsRef.current.delete(effect), 1000);
   }, []);
 
-  // Create smoke effect
-  const createPullDownEffect = useCallback((drone: THREE.Group) => {
-    if (!sceneManagerRef.current?.isActive()) return;
-
-    const effect = new PullDownEffect(
-      sceneManagerRef.current.getScene(),
-      drone
-    );
-
-    effectDownRef.current.add(effect);
-    setTimeout(() => effectDownRef.current.delete(effect), 1000);
-  }, []);
-
-  // Handle shooting
+  // MARK: - Handle shooting
   const handleShoot = useCallback(() => {
     if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive()) return;
 
@@ -84,7 +70,6 @@ const ARView: React.FC<ARViewProps> = ({
         if (onDroneShoot) {
           onDroneShoot(droneId);
           createSmokeEffect(hitPosition);
-          createPullDownEffect(drone);
         }
       },
       (geoObjectId: string, hitPosition: THREE.Vector3) => {
@@ -94,9 +79,9 @@ const ARView: React.FC<ARViewProps> = ({
         }
       }
     );
-  }, [onDroneShoot, onGeoObjectHit, createSmokeEffect, createPullDownEffect]);
+  }, [onDroneShoot, onGeoObjectHit, createSmokeEffect]);
 
-  // Initialize scene
+  // MARK: - Initialize scene
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -122,7 +107,7 @@ const ARView: React.FC<ARViewProps> = ({
       };
       window.addEventListener('resize', handleResize);
 
-      // Request device orientation permission if needed
+      // MARK: - Request device orientation permission if needed
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof (DeviceOrientationEvent as any).requestPermission === 'function'
@@ -150,6 +135,9 @@ const ARView: React.FC<ARViewProps> = ({
         }
 
         hitDetectorRef.current = undefined;
+
+        // Empty drones array
+        drones = [];
       };
     } catch (error) {
       console.error('Failed to initialize AR scene:', error);
@@ -157,13 +145,14 @@ const ARView: React.FC<ARViewProps> = ({
     }
   }, []);
 
-  // Setup shoot event listener
+  // MARK: - Setup shoot event listener
   useEffect(() => {
     document.addEventListener('gameShoot', handleShoot);
     return () => document.removeEventListener('gameShoot', handleShoot);
   }, [handleShoot]);
 
-  // Check WebGL support
+  // MARK: - Check WebGL support
+
   useEffect(() => {
     const checkWebGL = () => {
       try {
@@ -180,15 +169,6 @@ const ARView: React.FC<ARViewProps> = ({
     };
     checkWebGL();
   }, []);
-
-  // Location check
-  if (!location) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 text-white">
-        <p>Waiting for location access...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="relative h-screen w-full overflow-hidden">

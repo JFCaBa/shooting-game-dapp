@@ -28,12 +28,29 @@ export class HitDetector {
     const crosshair = new THREE.Vector2(0, 0.33);
     this.raycaster.setFromCamera(crosshair, this.camera);
 
+    // Debug ray visualization
+    const rayHelper = new THREE.ArrowHelper(
+      this.raycaster.ray.direction,
+      this.camera.position,
+      50,
+      0xff0000,
+      2,
+      1
+    );
+    this.scene.add(rayHelper);
+
     const targetGroup = this.getTargetMeshes();
     const intersects = this.raycaster.intersectObjects(targetGroup);
 
     if (intersects.length > 0) {
       this.processHit(intersects[0], onDroneHit, onGeoObjectHit);
     }
+
+    setTimeout(() => {
+      if (this.scene) {
+        this.scene.remove(rayHelper);
+      }
+    }, 500);
   }
 
   private getTargetMeshes(): THREE.Object3D[] {
@@ -76,6 +93,8 @@ export class HitDetector {
       const droneId = hitObject.userData.droneId;
       if (droneId) {
         onDroneHit(droneId, hitPosition, hitObject as THREE.Group);
+        // Remove drone
+        this.scene.remove(hitObject);
       }
     } else if (hitObject.name?.startsWith('HitBox_')) {
       const geoObjectId = hitObject.userData.geoObjectId;
