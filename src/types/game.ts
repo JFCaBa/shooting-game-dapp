@@ -50,11 +50,13 @@ export type GameScore = {
 export enum MessageType {
   WEBSOCKET_CONNECTED = 'websocket_connected',
   JOIN = 'join',
+  STATS = 'stats',
   SHOOT = 'shoot',
   SHOOT_CONFIRMED = 'shootConfirmed',
   HIT = 'hit',
   KILL = 'kill',
   HIT_CONFIRMED = 'hitConfirmed',
+  RELOAD = 'reload',
   LEAVE = 'leave',
   ANNOUNCED = 'announced',
   NEW_DRONE = 'newDrone',
@@ -92,7 +94,7 @@ export type GameMessageData = {
 export type GameMessage = {
   type: MessageType;
   playerId: string;
-  data: GameMessageData;
+  data?: GameMessageData;
   senderId?: string;
   pushToken?: string;
 };

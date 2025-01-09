@@ -1,10 +1,4 @@
 import { useLocationContext } from '../context/LocationContext';
-import {
-  calculateBearing,
-  calculateDistance,
-  calculateDamage,
-  toRadians,
-} from '../utils/maths';
 import React, {
   createContext,
   useContext,
@@ -26,6 +20,7 @@ import {
 } from '../types/game';
 import { generateTemporaryId } from '../utils/uuid';
 import { HitValidationService } from '../services/HitValidationService';
+import { PlayerStats } from '../types/player';
 
 interface GameState {
   players: Player[];
@@ -71,9 +66,9 @@ const INITIAL_STATE: GameState = {
   gameScore: { hits: 0, kills: 0 },
   playerId: null,
   isAlive: true,
-  currentLives: 10,
+  currentLives: 0,
   maxLives: 10,
-  currentAmmo: 30,
+  currentAmmo: 0,
   maxAmmo: 30,
   isReloading: false,
   droneTimer: null,
@@ -188,7 +183,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  const handleShot = useCallback(
+  const handleShoot = useCallback(
     async (
       message: GameMessage,
       shootData: ShootData,
@@ -227,7 +222,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       wsInstance.send(shootMessage);
       handleHit(hitValidation.damage);
     },
-    [state.playerId, handleHit]
+    [state.playerId, handleHit, hitValidationService, location]
   );
 
   const handleGeoObjectUpdate = useCallback((message: GameMessage) => {
@@ -268,9 +263,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       switch (message.type) {
+        case MessageType.STATS:
+          console.log('Received STATS: ', message);
+          if (message.data && message.playerId === state.playerId) {
+            setState((prev) => ({
+              ...prev,
+              currentAmmo:
+                (message.data as PlayerStats).currentAmmo ?? prev.currentAmmo,
+              currentLives:
+                (message.data as PlayerStats).currentLives ?? prev.currentLives,
+              gameScore: {
+                hits: (message.data as PlayerStats).hits ?? prev.gameScore.hits,
+                kills:
+                  (message.data as PlayerStats).kills ?? prev.gameScore.kills,
+              },
+              isReloading: false,
+            }));
+          }
+          break;
+
         case MessageType.SHOOT:
           if (message.data && message.playerId !== state.playerId) {
-            await handleShot(message, message.data as ShootData, wsInstance);
+            await handleShoot(message, message.data as ShootData, wsInstance);
             setState((prev) => ({
               ...prev,
               players: prev.players.map((player) =>
@@ -393,7 +407,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
           break;
       }
     },
-    [state, location, handleShot, resetDroneTimer, handleHit]
+    [state, location, handleShoot, resetDroneTimer, handleHit]
   );
 
   // MARK: - showReward
@@ -460,141 +474,136 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     // };
   }, [state.playerId, handleGameMessage]);
 
-  // MARK: - handleAdReward
+  // MARK: - sendReloadRequest
 
-  const handleAdReward = useCallback(() => {
-    switch (state.showAdModal) {
-      case 'ammo':
-        setState((prev) => ({
-          ...prev,
-          currentAmmo: prev.maxAmmo,
-          isReloading: false,
-          showAdModal: null,
-        }));
-        break;
-      case 'lives':
-        setState((prev) => ({
-          ...prev,
-          currentLives: prev.maxLives,
-          isAlive: true,
-          showAdModal: null,
-        }));
-        break;
+  const sendReloadRequest = useCallback(() => {
+    const wsInstance = WebSocketService.getInstance();
+
+    // Send reload message to server only once
+    const reloadMessage: GameMessage = {
+      type: MessageType.RELOAD,
+      playerId: state.playerId,
+    };
+
+    wsInstance.send(reloadMessage);
+  }, [state.playerId]);
+
+  // MARK: - performReload
+
+  const performReload = useCallback(() => {
+    if (state.isReloading) {
+      console.log('⚠️ Already reloading');
+      return;
     }
-  }, [state.showAdModal]);
-
-  // MARK: - closeAdModal
-
-  const closeAdModal = useCallback(() => {
-    console.log('Closing ad modal');
-    setState((prev) => ({
-      ...prev,
-      showAdModal: null,
-    }));
 
     console.log('⏳ Starting reload process');
     setState((prev) => ({ ...prev, isReloading: true }));
 
+    // Complete reload after delay
     setTimeout(() => {
-      setState((prev) => ({
-        ...prev,
-        currentAmmo: prev.maxAmmo,
-        isReloading: false,
-      }));
+      console.log('📡 Sent reload message to server');
+      sendReloadRequest();
     }, RELOAD_TIME);
-  }, [state.isReloading, state.currentAmmo]);
+  }, [state.isReloading, state.playerId, state.maxAmmo, sendReloadRequest]);
 
-  // MARK: reload
+  // MARK: - handleAdReward
 
-  const reload = useCallback(() => {
-    console.log('🔄 Reload function called', {
-      currentAmmo: state.currentAmmo,
-      isReloading: state.isReloading,
-      timestamp: new Date().toISOString(),
+  const handleAdReward = useCallback(() => {
+    setState((prev) => {
+      switch (prev.showAdModal) {
+        case 'ammo':
+          performReload();
+          return {
+            ...prev,
+            showAdModal: null,
+          };
+
+        case 'lives':
+          return {
+            ...prev,
+            currentLives: prev.maxLives,
+            isAlive: true,
+            showAdModal: null,
+          };
+        default:
+          return prev;
+      }
     });
+  }, [performReload]);
 
-    if (!state.isReloading) {
-      // Only show ad modal or start reload when ammo is fully depleted
-      if (state.currentAmmo <= 1) {
-        console.log('📉 Zero ammo, showing ad modal');
-        setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
-        return;
-      }
+  // MARK: - closeAdModal
 
-      // Don't start reloading unless ammo is very low (let's say 1 or 0)
-      if (state.currentAmmo > 1) {
-        console.log(
-          '🎯 Sufficient ammo, no need to reload:',
-          state.currentAmmo
-        );
-        return;
-      }
-
-      console.log('⏳ Starting reload process');
-      setState((prev) => ({ ...prev, isReloading: true }));
-
-      setTimeout(() => {
-        setState((prev) => ({
+  const closeAdModal = useCallback(() => {
+    setState((prev) => {
+      if (prev.showAdModal === 'ammo') {
+        performReload();
+        return {
           ...prev,
-          currentAmmo: prev.maxAmmo,
-          isReloading: false,
-        }));
-      }, RELOAD_TIME);
-    }
-  }, [state.isReloading, state.currentAmmo]);
+          showAdModal: null,
+          isReloading: true,
+        };
+      }
+
+      if (prev.showAdModal === 'lives') {
+        setTimeout(() => {
+          setState((prev) => ({
+            ...prev,
+            currentLives: prev.maxLives,
+            isAlive: true,
+          }));
+        }, RESPAWN_TIME);
+      }
+
+      return {
+        ...prev,
+        showAdModal: null,
+      };
+    });
+  }, [performReload]);
+
+  // Rename reload to match its usage as a public method
+  const reload = performReload;
 
   // MARK: - shoot
 
   const shoot = useCallback(
     (location: LocationData, heading: number) => {
-      console.log(
-        '🔫 Shoot function called with current ammo:',
-        state.currentAmmo
-      );
-
       if (!state.isAlive || !state.playerId) {
         console.log('❌ Shoot blocked - not alive or no player ID');
         return;
       }
 
-      // Check current ammo before decreasing
-      console.log('📊 Pre-shoot ammo check:', {
-        currentAmmo: state.currentAmmo,
-        isReloading: state.isReloading,
-      });
+      // Check if already reloading
+      if (state.isReloading) {
+        console.log('⏳ Blocked - currently reloading');
+        return;
+      }
 
+      // Check ammo and show modal if needed
       if (state.currentAmmo <= 0) {
         console.log('🚫 No ammo left, showing ad modal');
         setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
         return;
       }
 
-      if (state.isReloading) {
-        console.log('⏳ Blocked - currently reloading');
-        return;
-      }
-
       // Update ammo count
       setState((prev) => {
-        const newAmmo = prev.currentAmmo - 1;
-        console.log('🔄 Decreasing ammo', {
-          previous: prev.currentAmmo,
-          new: newAmmo,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Only trigger reload when ammo is critically low
-        if (newAmmo <= 1) {
-          console.log('📉 Low ammo, triggering reload');
-          setTimeout(() => reload(), 0);
+        const newAmmo = Math.max(0, prev.currentAmmo - 1);
+        // Show ad modal when ammo depleted
+        if (newAmmo === 0) {
+          return {
+            ...prev,
+            currentAmmo: newAmmo,
+            showAdModal: 'ammo',
+          };
         }
-
         return {
           ...prev,
           currentAmmo: newAmmo,
         };
       });
 
+      // Send shoot message
       const wsInstance = WebSocketService.getInstance();
       const shootData: ShootData = {
         playerId: state.playerId,
@@ -604,38 +613,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
         distance: 0,
       };
 
-      const message: GameMessage = {
+      wsInstance.send({
         type: MessageType.SHOOT,
         playerId: state.playerId,
         data: shootData,
-      };
-
-      if (location) {
-        wsInstance.send(message);
-        console.log('✅ Shot fired, message sent');
-      }
+      });
     },
-    [
-      state.isAlive,
-      state.isReloading,
-      state.currentAmmo,
-      state.playerId,
-      reload,
-    ]
+    [state.isAlive, state.isReloading, state.currentAmmo, state.playerId]
   );
-
-  const notifyNewGeoObject = (geoObjects: GeoObject[]) => {
-    setState((prev) => ({
-      ...prev,
-      geoObjects: [...prev.geoObjects, ...geoObjects],
-    }));
-  };
-
-  const handleGeoObjectHit = (geoObject: GeoObject) => {
-    document.dispatchEvent(
-      new CustomEvent('geoObjectHit', { detail: geoObject })
-    );
-  };
 
   const handleGeoObjectShootConfirmed = (geoObject: GeoObject) => {
     document.dispatchEvent(
