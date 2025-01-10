@@ -151,7 +151,10 @@ export class GameStateService {
   // MARK: - handleHit
   public handleHit(damage: number): void {
     this.setState((prev) => {
-      const newLives = Math.max(0, prev.currentLives - damage);
+      const newLives = Math.max(
+        0,
+        prev.currentLives - Math.max(Math.round(damage), 1)
+      );
 
       // Dispatch the hit event
       document.dispatchEvent(new CustomEvent('playerHit'));
