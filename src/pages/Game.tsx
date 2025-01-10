@@ -10,7 +10,6 @@ import GameStatus from '../components/game/GameStatus';
 import RewardAdModal from '../components/modals/RewardAdModal';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
-import { DroneType } from '../types/drone';
 
 export const Game = () => {
   const {
@@ -25,10 +24,9 @@ export const Game = () => {
     geoObjects,
     gameScore,
     updateGameScore,
-    setGeoObjects,
-    showAdModal,
     handleAdReward,
     closeAdModal,
+    showAdModal,
   } = useGameContext();
   const { location } = useLocationContext();
 
@@ -81,11 +79,7 @@ export const Game = () => {
         },
       });
 
-      // Remove the object from the game context
-      // setGeoObjects((prevObjects) =>
-      //   prevObjects.filter((obj) => obj.id !== geoObjectId)
-      // );
-
+      // Update game score through context
       updateGameScore({
         type: 'GEO_OBJECT_HIT',
         geoObjectId: geoObjectId,
@@ -108,7 +102,7 @@ export const Game = () => {
         );
       }
     },
-    [playerId, geoObjects, location, setGeoObjects, updateGameScore]
+    [playerId, geoObjects, location, updateGameScore]
   );
 
   return (
