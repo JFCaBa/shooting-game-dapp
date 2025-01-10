@@ -17,6 +17,7 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Achievements from './pages/Achievements';
 import HallOfFame from './pages/HallOfFame';
+import Wallet from './pages/Wallet';
 import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
@@ -78,7 +79,8 @@ const GameLayout = () => {
       screen === 'map' ||
       screen === 'achievements' ||
       screen === 'hallOfFame' ||
-      screen === 'settings'
+      screen === 'settings' ||
+      screen === 'wallet'
     ) {
       setCurrentScreen(screen);
       setShowAuthBanner(false);
@@ -110,6 +112,8 @@ const GameLayout = () => {
         return <Achievements />;
       case 'hallOfFame':
         return <HallOfFame />;
+      case 'wallet':
+        return <Wallet />;
       case 'settings':
         return <Settings onSignOut={handleSignOut} />;
       default:
