@@ -40,7 +40,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const connect = async () => {
     if (!isPetraAvailable()) {
-      throw new Error('Petra wallet is not installed');
+      throw new Error(
+        'Petra wallet is not installed or not supported by your browser'
+      );
     }
 
     try {
