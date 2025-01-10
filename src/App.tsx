@@ -23,6 +23,7 @@ import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
 import DevicePermissionsHandler from './components/permissions/DevicePermissionsHandler';
 import { adManager } from './services/AdManager';
+import { WalletProvider } from './context/WalletContext';
 
 // AuthBanner component for unauthenticated users
 const AuthBanner = ({
@@ -164,20 +165,22 @@ const App = () => {
 
   return (
     <Router>
-      <LocationProvider>
-        <GameProvider>
-          <AchievementsProvider>
-            <DevicePermissionsHandler>
-              <Routes>
-                <Route path="/create-user" element={<CreateUser />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/*" element={<GameLayout />} />
-              </Routes>
-            </DevicePermissionsHandler>
-          </AchievementsProvider>
-        </GameProvider>
-      </LocationProvider>
+      <WalletProvider>
+        <LocationProvider>
+          <GameProvider>
+            <AchievementsProvider>
+              <DevicePermissionsHandler>
+                <Routes>
+                  <Route path="/create-user" element={<CreateUser />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/*" element={<GameLayout />} />
+                </Routes>
+              </DevicePermissionsHandler>
+            </AchievementsProvider>
+          </GameProvider>
+        </LocationProvider>
+      </WalletProvider>
     </Router>
   );
 };

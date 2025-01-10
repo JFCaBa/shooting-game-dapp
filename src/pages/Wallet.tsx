@@ -1,5 +1,5 @@
-// src/pages/Wallet.tsx
 import React, { useState, useEffect } from 'react';
+import { useWallet } from '../context/WalletContext';
 import { API_ENDPOINTS } from '../constants/endpoints';
 
 interface TokenBalance {
@@ -8,6 +8,7 @@ interface TokenBalance {
 }
 
 const Wallet = () => {
+  const { wallet, connect, disconnect, isConnecting, aptBalance } = useWallet();
   const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,9 +54,21 @@ const Wallet = () => {
     fetchTokenBalance();
   }, []);
 
-  const handleConnectWallet = () => {
-    // Wallet connection logic will be implemented here
-    console.log('Connect wallet clicked');
+  const handleWalletAction = async () => {
+    try {
+      setError(null);
+      if (wallet?.isConnected) {
+        await disconnect();
+      } else {
+        await connect();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
+    }
+  };
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   if (isLoading) {
@@ -76,14 +89,36 @@ const Wallet = () => {
 
           {/* Connect Wallet Button */}
           <button
-            onClick={handleConnectWallet}
-            className="w-full bg-[#FF5B37] hover:bg-[#FF4120] text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 mb-8"
+            onClick={handleWalletAction}
+            disabled={isConnecting}
+            className="w-full bg-[#FF5B37] hover:bg-[#FF4120] text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 mb-8 disabled:opacity-50"
           >
-            Connect Petra Wallet
+            {isConnecting ? (
+              'Connecting...'
+            ) : wallet?.isConnected ? (
+              <>
+                <span>Connected: {formatAddress(wallet.address)}</span>
+                <span className="ml-2 text-sm opacity-70">
+                  (Click to disconnect)
+                </span>
+              </>
+            ) : (
+              'Connect Petra Wallet'
+            )}
           </button>
 
           {/* Balance Cards */}
           <div className="space-y-4">
+            {wallet?.isConnected && (
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h2 className="text-gray-400 text-sm mb-2">APT Balance</h2>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-bold">{aptBalance}</span>
+                  <span className="ml-2 text-gray-400">APT</span>
+                </div>
+              </div>
+            )}
+
             {/* Total Balance Card */}
             <div className="bg-gray-800 rounded-lg p-6">
               <h2 className="text-gray-400 text-sm mb-2">Total Balance</h2>

@@ -1,5 +1,3 @@
-// src/types/wallet.ts
-
 export interface TokenBalance {
   totalBalance: number; // Total balance of tokens
   mintedBalance: number; // Transferable/minted balance
@@ -8,5 +6,5 @@ export interface TokenBalance {
 export interface WalletConnection {
   address: string;
   isConnected: boolean;
-  publicKey?: string;
+  publicKey?: string | string[]; // Updated to handle both string and string array types
 }
