@@ -29,11 +29,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   ];
 
   const handleShoot = () => {
-    // if (!location) {
-    //   console.error('Missing location');
-    //   return;
-    // }
-
     try {
       shoot(location, heading);
     } catch (error) {

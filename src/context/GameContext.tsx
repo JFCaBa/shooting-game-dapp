@@ -70,16 +70,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [state.playerId]);
 
-  // MARK: - Check ammo/lives state
-  // useEffect(() => {
-  //   if (state.currentAmmo <= 0) {
-  //     setState((prev) => ({ ...prev, showAdModal: 'ammo' }));
-  //   }
-  //   if (state.currentLives <= 0) {
-  //     setState((prev) => ({ ...prev, showAdModal: 'lives' }));
-  //   }
-  // }, [state.currentAmmo, state.currentLives]);
-
   // MARK: - contextValue
 
   const contextValue: GameContextType = {
