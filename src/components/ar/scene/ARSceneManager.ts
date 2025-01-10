@@ -1,26 +1,21 @@
 import * as THREE from 'three';
 import { DeviceOrientationControls } from 'three-stdlib';
-import { geoObjectManager } from '../../../services/GeoObjectManager';
 
 export class ARSceneManager {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private controls: DeviceOrientationControls;
-  private animationFrameId: number | null = null;
   private isDestroyed: boolean = false;
+  private animationFrameId: number | null = null;
 
   constructor(container: HTMLElement) {
-    console.log('Initializing AR Scene Manager');
     this.scene = new THREE.Scene();
     this.camera = this.createCamera();
     this.renderer = this.createRenderer(container);
-    this.controls = this.createControls();
+    this.controls = new DeviceOrientationControls(this.camera);
     this.setupLighting();
-    this.setupGeoObjectManager();
   }
-
-  // MARK: - createCamera
 
   private createCamera(): THREE.PerspectiveCamera {
     const camera = new THREE.PerspectiveCamera(
@@ -31,102 +26,50 @@ export class ARSceneManager {
     );
     camera.position.set(0, 1.6, 0);
     camera.rotation.set(0, 0, 0);
-    console.log('Camera created:', {
-      position: camera.position,
-      rotation: camera.rotation,
-    });
     return camera;
   }
 
-  // MARK: - createRender
-
   private createRenderer(container: HTMLElement): THREE.WebGLRenderer {
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-    });
+    const renderer = new THREE.WebGLRenderer({ alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(window.devicePixelRatio);
-
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
     container.appendChild(renderer.domElement);
-    console.log('Renderer created');
     return renderer;
   }
 
-  // MARK: - createControls
-
-  private createControls(): DeviceOrientationControls {
-    const controls = new DeviceOrientationControls(this.camera);
-    console.log('Device orientation controls created');
-    return controls;
-  }
-
-  // MARK: - setupLighting
-
   private setupLighting(): void {
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-    this.scene.add(ambientLight);
-
-    // const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    // directionalLight.position.set(0, 1, 0);
-    // this.scene.add(directionalLight);
-    console.log('Lighting setup completed');
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(0, 1, 0);
+    this.scene.add(ambientLight, directionalLight);
   }
 
-  // MARK: - setupGeoObjectManager
+  public update(): void {
+    if (this.isDestroyed) return;
 
-  private setupGeoObjectManager(): void {
-    geoObjectManager.initialize(this.scene);
-    geoObjectManager.setUpdateCallback((count) => {
-      console.log('GeoObject count updated:', count);
-    });
-    console.log('GeoObjectManager initialized');
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
   }
-
-  // MARK: - startAnimation
 
   public startAnimation(): void {
-    if (this.isDestroyed || this.animationFrameId !== null) return;
-
     const animate = () => {
       if (this.isDestroyed) return;
 
-      if (this.controls) {
-        this.controls.update();
-      }
-
-      this.renderer.render(this.scene, this.camera);
       this.animationFrameId = requestAnimationFrame(animate);
+      this.update();
     };
-
     animate();
-    console.log('Animation loop started');
   }
-
-  // MARK: - handleResize
 
   public handleResize(): void {
     if (this.isDestroyed) return;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    this.camera.aspect = width / height;
+    this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
-
-    this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  // MARK: - cleanup
-
   public cleanup(): void {
-    if (this.isDestroyed) return;
-    console.log('Cleaning up AR Scene Manager');
     this.isDestroyed = true;
 
     if (this.animationFrameId !== null) {
@@ -135,32 +78,42 @@ export class ARSceneManager {
     }
 
     this.controls.disconnect();
-    this.renderer.dispose();
 
+    // Clean up scene
+    this.scene.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        if (object.geometry) {
+          object.geometry.dispose();
+        }
+        if (object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach((material) => material.dispose());
+          } else {
+            object.material.dispose();
+          }
+        }
+      }
+    });
+
+    // Remove canvas from DOM
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
 
-    // Clear scene
-    while (this.scene.children.length > 0) {
-      this.scene.remove(this.scene.children[0]);
-    }
-
-    console.log('Cleanup completed');
+    // Dispose renderer
+    this.renderer.dispose();
   }
 
   public getScene(): THREE.Scene {
-    if (this.isDestroyed) {
-      throw new Error('ARSceneManager has been destroyed');
-    }
     return this.scene;
   }
 
   public getCamera(): THREE.PerspectiveCamera {
-    if (this.isDestroyed) {
-      throw new Error('ARSceneManager has been destroyed');
-    }
     return this.camera;
+  }
+
+  public getRenderer(): THREE.WebGLRenderer {
+    return this.renderer;
   }
 
   public isActive(): boolean {

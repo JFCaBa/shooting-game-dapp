@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRONE_SCALE, DroneData, convertToVector3 } from '../../types/drone';
@@ -8,7 +8,9 @@ interface ARDroneModelProps {
   onHit?: (droneId: string) => void;
   modelUrl: string;
   scene: THREE.Scene;
-  camera: THREE.Camera;
+  camera: THREE.PerspectiveCamera;
+  cacheTexture?: (key: string, texture: THREE.Texture) => THREE.Texture;
+  queueForDisposal?: (object: THREE.Object3D) => void;
 }
 
 const ARDroneModel: React.FC<ARDroneModelProps> = ({
@@ -17,143 +19,89 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   modelUrl,
   scene,
   camera,
+  cacheTexture,
+  queueForDisposal,
 }) => {
   const modelRef = useRef<THREE.Group>();
   const boundingBoxesRef = useRef(new Map());
   const isDestroyedRef = useRef(false);
-  const mixers = useMemo(() => [] as THREE.AnimationMixer[], []);
-  const animationFrameRef = useRef<number>();
-  const clock = useRef(new THREE.Clock());
+  const mixers = useRef<THREE.AnimationMixer[]>([]);
 
-  // MARK: - Animation Frame Handler
-  const animate = useCallback(() => {
-    const delta = clock.current.getDelta();
-    mixers.forEach((mixer) => mixer.update(delta));
-    animationFrameRef.current = requestAnimationFrame(animate);
-  }, [mixers]);
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (isDestroyedRef.current) return;
+    isDestroyedRef.current = true;
 
-  // MARK: - Rotor Animation
-  const initializeRotorAnimation = useCallback(
-    (rotor: THREE.Object3D) => {
-      const box = new THREE.Box3().setFromObject(rotor);
-      const center = box.getCenter(new THREE.Vector3());
+    // Stop all animations
+    mixers.current.forEach((mixer) => mixer.stopAllAction());
+    mixers.current = [];
 
-      const pivot = new THREE.Object3D();
-      pivot.position.copy(center);
-      rotor.parent?.add(pivot);
+    // Queue model for disposal if memory management is enabled
+    if (queueForDisposal && modelRef.current) {
+      queueForDisposal(modelRef.current);
+    }
+  }, [queueForDisposal]);
 
-      rotor.position.sub(center);
-      pivot.add(rotor);
+  // Initialize rotor animation
+  const initializeRotorAnimation = useCallback((rotor: THREE.Object3D) => {
+    const box = new THREE.Box3().setFromObject(rotor);
+    const center = box.getCenter(new THREE.Vector3());
 
-      const rotorMixer = new THREE.AnimationMixer(pivot);
-      mixers.push(rotorMixer);
+    const pivot = new THREE.Object3D();
+    pivot.position.copy(center);
+    rotor.parent?.add(pivot);
 
-      const track = new THREE.KeyframeTrack(
-        '.rotation[y]',
-        [0, 0.3],
-        [0, Math.PI * 2]
-      );
+    rotor.position.sub(center);
+    pivot.add(rotor);
 
-      const clip = new THREE.AnimationClip(`rotor_spin_${rotor.name}`, 0.3, [
-        track,
-      ]);
-      const action = rotorMixer.clipAction(clip);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.play();
-    },
-    [mixers]
-  );
+    const rotorMixer = new THREE.AnimationMixer(pivot);
+    mixers.current.push(rotorMixer);
 
-  // MARK: - Start Animations
-  const startAnimations = useCallback(() => {
-    if (!modelRef.current) return;
-
-    const eyeLevelOffset = 2; // Adjust this value for desired height
-    const initialPosition = modelRef.current.position.clone();
-    initialPosition.y += eyeLevelOffset;
-
-    // Initialize rotor animations
-    const rotorNames = ['Rotor_F_R', 'Rotor_F_L', 'Rotor_R_R', 'Rotor_R_L'];
-    modelRef.current.traverse((child) => {
-      if (rotorNames.includes(child.name)) {
-        initializeRotorAnimation(child);
-      }
-    });
-
-    // Initialize main animations
-    const mainMixer = new THREE.AnimationMixer(modelRef.current);
-    mixers.push(mainMixer);
-
-    // Hover animation
-    const hoverTrack = new THREE.VectorKeyframeTrack(
-      '.position[y]',
-      [0, 1, 2],
-      [initialPosition.y, initialPosition.y + 1, initialPosition.y]
+    const track = new THREE.KeyframeTrack(
+      '.rotation[y]',
+      [0, 0.3],
+      [0, Math.PI * 2]
     );
 
-    const hoverClip = new THREE.AnimationClip('hover', 2, [hoverTrack]);
-    const hoverAction = mainMixer.clipAction(hoverClip);
-    hoverAction.setLoop(THREE.LoopPingPong, Infinity);
-    hoverAction.play();
-
-    // Patrol animation
-    const patrolRadius = 8;
-    const patrolDuration = 6;
-    const patrolPoints = Array.from({ length: 31 }, (_, i) => {
-      const angle = (i / 30) * Math.PI * 2;
-      return {
-        time: (i / 30) * patrolDuration,
-        x: initialPosition.x + Math.cos(angle) * patrolRadius,
-        z: initialPosition.z + Math.sin(angle) * patrolRadius,
-      };
-    });
-
-    const patrolXTrack = new THREE.KeyframeTrack(
-      '.position[x]',
-      patrolPoints.map((p) => p.time),
-      patrolPoints.map((p) => p.x)
-    );
-
-    const patrolZTrack = new THREE.KeyframeTrack(
-      '.position[z]',
-      patrolPoints.map((p) => p.time),
-      patrolPoints.map((p) => p.z)
-    );
-
-    const patrolClip = new THREE.AnimationClip('patrol', patrolDuration, [
-      patrolXTrack,
-      patrolZTrack,
+    const clip = new THREE.AnimationClip(`rotor_spin_${rotor.name}`, 0.3, [
+      track,
     ]);
+    const action = rotorMixer.clipAction(clip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+  }, []);
 
-    const patrolAction = mainMixer.clipAction(patrolClip);
-    patrolAction.setLoop(THREE.LoopRepeat, Infinity);
-    patrolAction.play();
-
-    // Start animation loop
-    animate();
-  }, [mixers, initializeRotorAnimation, animate]);
-
-  // MARK: - Model Loader
+  // Load and setup model
   useEffect(() => {
     const loader = new GLTFLoader();
 
     loader.load(
       modelUrl,
       (gltf) => {
+        if (isDestroyedRef.current) return;
+
         const model = gltf.scene;
         const position = convertToVector3(drone.position);
 
         model.position.copy(position);
         model.scale.copy(DRONE_SCALE);
         model.userData.droneId = drone.droneId;
-        model.userData.isMainDroneModel = true; // Add flag to main model
+        model.userData.isMainDroneModel = true;
 
-        model.traverse((child) => {
-          child.userData.droneId = drone.droneId;
-          if (child instanceof THREE.Mesh) {
-            child.userData.isTargetable = true;
-          }
-        });
+        // Apply cached textures if available
+        if (cacheTexture) {
+          model.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              const material = child.material as THREE.MeshStandardMaterial;
+              if (material.map) {
+                material.map = cacheTexture(
+                  `${drone.droneId}_${child.name}_map`,
+                  material.map
+                );
+              }
+            }
+          });
+        }
 
         // Bounding box setup
         const boundingBoxGeometry = new THREE.BoxGeometry(35, 15, 25);
@@ -174,22 +122,31 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
 
         modelRef.current = model;
         scene.add(model);
-        startAnimations();
+
+        // Initialize rotor animations
+        const rotorNames = ['Rotor_F_R', 'Rotor_F_L', 'Rotor_R_R', 'Rotor_R_L'];
+        model.traverse((child) => {
+          if (rotorNames.includes(child.name)) {
+            initializeRotorAnimation(child);
+          }
+        });
       },
       undefined,
       (error) => console.error('Error loading drone model:', error)
     );
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      mixers.forEach((mixer) => mixer.stopAllAction());
-      if (modelRef.current) {
-        scene.remove(modelRef.current);
-      }
+      cleanup();
     };
-  }, [scene, modelUrl, drone.position, startAnimations, drone.droneId]);
+  }, [
+    scene,
+    modelUrl,
+    drone.position,
+    drone.droneId,
+    initializeRotorAnimation,
+    cleanup,
+    cacheTexture,
+  ]);
 
   // Update position when drone moves
   useEffect(() => {

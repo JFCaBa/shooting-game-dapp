@@ -1,14 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { GeoObject } from '../../types/game';
 
 interface GeoObjectNodeProps {
   geoObject: GeoObject;
-  onHit?: (id: string) => void;
+  onHit?: (geoObjectId: string) => void;
   scene: THREE.Scene;
-  camera: THREE.Camera;
-  onMounted?: (object: THREE.Object3D) => void;
+  camera: THREE.PerspectiveCamera;
+  cacheTexture?: (key: string, texture: THREE.Texture) => THREE.Texture;
+  queueForDisposal?: (object: THREE.Object3D) => void;
 }
 
 const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
@@ -16,124 +16,85 @@ const GeoObjectNode: React.FC<GeoObjectNodeProps> = ({
   onHit,
   scene,
   camera,
-  onMounted,
+  cacheTexture,
+  queueForDisposal,
 }) => {
-  const modelRef = useRef<THREE.Group>();
+  const objectRef = useRef<THREE.Group>();
   const isDestroyedRef = useRef(false);
 
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (isDestroyedRef.current) return;
+    isDestroyedRef.current = true;
+
+    if (queueForDisposal && objectRef.current) {
+      queueForDisposal(objectRef.current);
+    }
+  }, [queueForDisposal]);
+
+  // Create and setup object
   useEffect(() => {
-    const loader = new GLTFLoader();
-    const modelUrl = getModelUrlForType(geoObject.type);
+    const group = new THREE.Group();
+    group.name = `GeoObject_${geoObject.id}`;
+    group.userData.geoObjectId = geoObject.id;
 
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(
-          geoObject.coordinate.latitude,
-          geoObject.coordinate.altitude,
-          geoObject.coordinate.longitude
-        );
+    // Create visual representation
+    const geometry = new THREE.SphereGeometry(1, 32, 32);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.7,
+    });
 
-        // Scale based on type
-        const scale = getScaleForType(geoObject.type);
-        model.scale.set(scale, scale, scale);
+    const mesh = new THREE.Mesh(geometry, material);
 
-        // Add metadata
-        model.userData.geoObjectId = geoObject.id;
-        model.userData.type = geoObject.type;
-        model.traverse((child) => {
-          child.userData.geoObjectId = geoObject.id;
-          if (child instanceof THREE.Mesh) {
-            child.userData.isTargetable = true;
-          }
-        });
+    // Create hitbox
+    const hitboxGeometry = new THREE.SphereGeometry(1.2, 16, 16);
+    const hitboxMaterial = new THREE.MeshBasicMaterial({
+      visible: false,
+      transparent: true,
+      opacity: 0,
+    });
 
-        // Add bounding box for hit detection
-        const boundingBox = new THREE.Box3().setFromObject(model);
-        const boxGeometry = new THREE.BoxGeometry(
-          boundingBox.max.x - boundingBox.min.x,
-          boundingBox.max.y - boundingBox.min.y,
-          boundingBox.max.z - boundingBox.min.z
-        );
-        const boxMaterial = new THREE.MeshBasicMaterial({
-          transparent: true,
-          opacity: 0,
-        });
-        const hitBox = new THREE.Mesh(boxGeometry, boxMaterial);
-        hitBox.name = `HitBox_${geoObject.id}`;
-        hitBox.userData.geoObjectId = geoObject.id;
-        model.add(hitBox);
+    const hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+    hitbox.name = `HitBox_${geoObject.id}`;
+    hitbox.userData.geoObjectId = geoObject.id;
 
-        // Add lighting
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(0, 1, 0);
-        light.intensity = 2;
-        model.add(light);
+    group.add(mesh);
+    group.add(hitbox);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        model.add(ambientLight);
-
-        // Add animations
-        addAnimations(model);
-
-        modelRef.current = model;
-        scene.add(model);
-
-        onMounted?.(model);
-      },
-      undefined,
-      (error) => console.error('Error loading geoObject model:', geoObject.type)
+    // Position the object
+    const position = new THREE.Vector3(
+      geoObject.coordinate.longitude,
+      geoObject.coordinate.altitude,
+      geoObject.coordinate.latitude
     );
+    group.position.copy(position);
+
+    // Apply cached textures if available
+    if (cacheTexture && material.map) {
+      material.map = cacheTexture(`${geoObject.id}_texture`, material.map);
+    }
+
+    objectRef.current = group;
+    scene.add(group);
 
     return () => {
-      if (modelRef.current && !isDestroyedRef.current) {
-        scene.remove(modelRef.current);
-      }
+      cleanup();
     };
-  }, [scene, geoObject]);
+  }, [scene, geoObject, cleanup, cacheTexture]);
 
-  const getModelUrlForType = (type: string): string => {
-    switch (type) {
-      case 'weapon':
-        return '/models/weapons_crate.glb';
-      case 'powerup':
-        return '/models/powerup.glb';
-      case 'target':
-        return '/models/target.glb';
-      default:
-        return '/models/default.glb';
+  // Update position if needed
+  useEffect(() => {
+    if (objectRef.current && !isDestroyedRef.current) {
+      const position = new THREE.Vector3(
+        geoObject.coordinate.longitude,
+        geoObject.coordinate.altitude,
+        geoObject.coordinate.latitude
+      );
+      objectRef.current.position.copy(position);
     }
-  };
-
-  const getScaleForType = (type: string): number => {
-    switch (type) {
-      case 'weapon':
-        return 0.03;
-      case 'powerup':
-        return 0.03;
-      case 'target':
-        return 0.01;
-      default:
-        return 0.05;
-    }
-  };
-
-  const addAnimations = (model: THREE.Group) => {
-    const animate = () => {
-      if (!isDestroyedRef.current) {
-        // Hover animation
-        model.position.y += Math.sin(Date.now() * 0.002) * 0.001;
-
-        // Slow rotation
-        model.rotation.y += 0.01;
-
-        requestAnimationFrame(animate);
-      }
-    };
-
-    animate();
-  };
+  }, [geoObject.coordinate]);
 
   return null;
 };

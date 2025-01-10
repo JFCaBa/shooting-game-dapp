@@ -10,6 +10,8 @@ import ARDroneModel from './ARDroneModel';
 import GeoObjectNode from './GeoObjectNode';
 import Camera from '../game/Camera';
 import { calculateDistance } from '../../utils/maths';
+import { memoryManager } from '../../services/MemoryManagementService';
+import { useMemoryManagement } from '../../hooks/useMemoryManagement';
 
 interface ARViewProps {
   drones?: DroneData[];
@@ -31,15 +33,33 @@ const ARView: React.FC<ARViewProps> = ({
   const hitDetectorRef = useRef<HitDetector>();
   const effectsRef = useRef<Set<SmokeEffect>>(new Set());
   const isDestroyedRef = useRef(false);
+  const rendererRef = useRef<THREE.WebGLRenderer>();
   const { location } = useLocationContext();
+
+  // Initialize memory management
+  const { queueForDisposal, cacheTexture, forceCleanup } = useMemoryManagement(
+    rendererRef.current
+  );
 
   // MARK: - Cleanup handler
   const cleanup = useCallback(() => {
     isDestroyedRef.current = true;
 
-    // Cleanup effects
-    effectsRef.current.forEach((effect) => effect.destroy());
+    // Cleanup effects with memory management
+    effectsRef.current.forEach((effect) => {
+      effect.destroy();
+      if (effect.getParticleSystem()) {
+        queueForDisposal(effect.getParticleSystem());
+      }
+    });
     effectsRef.current.clear();
+
+    // Queue scene objects for disposal
+    if (sceneManagerRef.current?.getScene()) {
+      sceneManagerRef.current.getScene().traverse((object) => {
+        queueForDisposal(object);
+      });
+    }
 
     // Cleanup scene manager
     if (sceneManagerRef.current) {
@@ -49,11 +69,14 @@ const ARView: React.FC<ARViewProps> = ({
 
     hitDetectorRef.current = undefined;
 
+    // Force memory cleanup
+    forceCleanup();
+
     // Force garbage collection hint
     if (typeof window.gc === 'function') {
       window.gc();
     }
-  }, []);
+  }, [queueForDisposal, forceCleanup]);
 
   // MARK: - Filter visible geo objects based on distance
   const visibleGeoObjects = useMemo(() => {
@@ -64,23 +87,31 @@ const ARView: React.FC<ARViewProps> = ({
     });
   }, [geoObjects, location]);
 
-  // MARK: - Create smoke effect
-  const createSmokeEffect = useCallback((position: THREE.Vector3) => {
-    if (!sceneManagerRef.current?.isActive()) return;
+  // MARK: - Create smoke effect with memory management
+  const createSmokeEffect = useCallback(
+    (position: THREE.Vector3) => {
+      if (!sceneManagerRef.current?.isActive()) return;
 
-    const effect = new SmokeEffect(
-      sceneManagerRef.current.getScene(),
-      position,
-      {
-        color: 0xff0000,
-        particleCount: 75,
-        duration: 2000,
-      }
-    );
+      const effect = new SmokeEffect(
+        sceneManagerRef.current.getScene(),
+        position,
+        {
+          color: 0xff0000,
+          particleCount: 75,
+          duration: 2000,
+        }
+      );
 
-    effectsRef.current.add(effect);
-    setTimeout(() => effectsRef.current.delete(effect), 1000);
-  }, []);
+      effectsRef.current.add(effect);
+      setTimeout(() => {
+        effectsRef.current.delete(effect);
+        if (effect.getParticleSystem()) {
+          queueForDisposal(effect.getParticleSystem());
+        }
+      }, 1000);
+    },
+    [queueForDisposal]
+  );
 
   // MARK: - Handle shooting
   const handleShoot = useCallback(() => {
@@ -110,6 +141,10 @@ const ARView: React.FC<ARViewProps> = ({
       // Initialize scene manager
       const sceneManager = new ARSceneManager(containerRef.current);
       sceneManagerRef.current = sceneManager;
+      rendererRef.current = sceneManager.getRenderer();
+
+      // Initialize memory manager with renderer
+      memoryManager.initialize(sceneManager.getRenderer());
 
       // Initialize hit detector
       hitDetectorRef.current = new HitDetector(
@@ -117,8 +152,25 @@ const ARView: React.FC<ARViewProps> = ({
         sceneManager.getCamera()
       );
 
-      // Start animation loop
-      sceneManager.startAnimation();
+      // Start animation loop with memory monitoring
+      const animate = () => {
+        if (!isDestroyedRef.current) {
+          sceneManager.update();
+          requestAnimationFrame(animate);
+
+          // Periodically check memory status
+          if (Date.now() % 100 === 0) {
+            // Check every ~10 frames
+            const stats = memoryManager.getMemoryStats();
+            if (stats.totalMemory > 500) {
+              // MB threshold
+              console.warn('High memory usage detected:', stats);
+              forceCleanup();
+            }
+          }
+        }
+      };
+      animate();
 
       // Handle window resize
       const handleResize = () => {
@@ -149,7 +201,7 @@ const ARView: React.FC<ARViewProps> = ({
       console.error('Failed to initialize AR scene:', error);
       throw error;
     }
-  }, [cleanup]);
+  }, [cleanup, forceCleanup]);
 
   // MARK: - Setup shoot event listener
   useEffect(() => {
@@ -198,6 +250,8 @@ const ARView: React.FC<ARViewProps> = ({
                 modelUrl="/models/drone_four_rotor_one.glb"
                 scene={sceneManagerRef.current.getScene()}
                 camera={sceneManagerRef.current.getCamera()}
+                cacheTexture={cacheTexture}
+                queueForDisposal={queueForDisposal}
               />
             ))}
             {visibleGeoObjects.map((geoObject) => (
@@ -207,6 +261,8 @@ const ARView: React.FC<ARViewProps> = ({
                 onHit={onGeoObjectHit}
                 scene={sceneManagerRef.current.getScene()}
                 camera={sceneManagerRef.current.getCamera()}
+                cacheTexture={cacheTexture}
+                queueForDisposal={queueForDisposal}
               />
             ))}
           </>
@@ -216,4 +272,4 @@ const ARView: React.FC<ARViewProps> = ({
   );
 };
 
-export default ARView;
+export default React.memo(ARView);
