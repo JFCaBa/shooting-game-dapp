@@ -67,6 +67,7 @@ export enum MessageType {
   GEO_OBJECT_HIT = 'geoObjectHit',
   GEO_OBJECT_SHOOT_CONFIRMED = 'geoObjectShootConfirmed',
   GEO_OBJECT_SHOOT_REJECTED = 'geoObjectShootRejected',
+  UPDATE_PUSH_TOKEN = 'updatePushToken',
 }
 
 export type GameMessageData = {
@@ -98,3 +99,19 @@ export type GameMessage = {
   senderId?: string;
   pushToken?: string;
 };
+
+// Helper function to ensure Player type conformity
+export const createPlayer = (
+  playerId: string,
+  location?: Partial<LocationData>,
+  heading?: number
+): Player => ({
+  playerId,
+  location: {
+    latitude: location?.latitude || 0,
+    longitude: location?.longitude || 0,
+    altitude: location?.altitude || 0,
+    accuracy: location?.accuracy || 0,
+  },
+  heading: heading || 0,
+});

@@ -127,6 +127,8 @@ export class GameMessageService {
   ): Promise<void> {
     if (message.type === MessageType.WEBSOCKET_CONNECTED) {
       try {
+        const pushToken = localStorage.getItem('pushToken');
+
         const joinMessage: GameMessage = {
           type: MessageType.JOIN,
           playerId: currentPlayerId,
@@ -135,7 +137,7 @@ export class GameMessageService {
             kind: 'player',
             heading: 0,
           },
-          pushToken: null,
+          pushToken: pushToken,
         };
 
         this.wsInstance.send(joinMessage);
@@ -185,13 +187,16 @@ export class GameMessageService {
         break;
 
       case MessageType.HIT:
-        if (message.data.shoot?.hitPlayerId === currentPlayerId) {
+        if (
+          message.data &&
+          message.data.shoot?.hitPlayerId === currentPlayerId
+        ) {
           this.handleHit(message.data.shoot.damage);
         }
         break;
 
       case MessageType.DRONE_SHOOT_CONFIRMED:
-        this.showReward(message.data.reward || 2);
+        this.showReward((message.data && message.data.reward) || 2);
         break;
 
       case MessageType.HIT_CONFIRMED:
@@ -259,7 +264,7 @@ export class GameMessageService {
         break;
 
       case MessageType.GEO_OBJECT_HIT:
-        if (message.data.geoObject) {
+        if (message.data && message.data.geoObject) {
           this.setGeoObjects((prev) =>
             prev.filter((obj) => obj.id !== message.data.geoObject.id)
           );
@@ -267,7 +272,7 @@ export class GameMessageService {
         break;
 
       case MessageType.GEO_OBJECT_SHOOT_CONFIRMED:
-        if (message.data.geoObject) {
+        if (message.data && message.data.geoObject) {
           document.dispatchEvent(
             new CustomEvent('geoObjectShootConfirmed', {
               detail: message.data.geoObject,
