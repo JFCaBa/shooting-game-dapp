@@ -13,6 +13,7 @@ export interface GameState {
   currentAmmo: number;
   maxAmmo: number;
   isReloading: boolean;
+  isRecovering: boolean;
   droneTimer: NodeJS.Timer | null;
   geoObjects: GeoObject[];
   location: LocationData;
@@ -44,6 +45,7 @@ export const INITIAL_STATE: GameState = {
   currentAmmo: 0,
   maxAmmo: 30,
   isReloading: false,
+  isRecovering: false,
   droneTimer: null,
   geoObjects: [],
   location: { latitude: 0, longitude: 0, altitude: 0, accuracy: 0 },

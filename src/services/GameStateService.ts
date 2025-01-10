@@ -9,6 +9,7 @@ import {
 import { RELOAD_TIME, RESPAWN_TIME } from '../types/gameContext';
 
 export class GameStateService {
+  private isShooting: boolean = false;
   private wsInstance: WebSocketService;
   private setState: (
     state: GameState | ((prevState: GameState) => GameState)
@@ -31,6 +32,15 @@ export class GameStateService {
     this.wsInstance.send(reloadMessage);
   }
 
+  // MARK: - sendRecoverRequest
+  public sendRecoverRequest(playerId: string): void {
+    const recoverMessage: GameMessage = {
+      type: MessageType.RECOVER,
+      playerId: playerId,
+    };
+    this.wsInstance.send(recoverMessage);
+  }
+
   // MARK: - performReload
   public performReload(playerId: string): void {
     this.setState((prev) => {
@@ -42,6 +52,20 @@ export class GameStateService {
 
     setTimeout(() => {
       this.sendReloadRequest(playerId);
+    }, RELOAD_TIME);
+  }
+
+  // MARK: - performRecover
+  public performRecover(playerId: string): void {
+    this.setState((prev) => {
+      if (prev.isRecovering) {
+        return prev;
+      }
+      return { ...prev, isRecovering: true, isAlive: false };
+    });
+
+    setTimeout(() => {
+      this.sendRecoverRequest(playerId);
     }, RELOAD_TIME);
   }
 
@@ -57,10 +81,9 @@ export class GameStateService {
           };
 
         case 'lives':
+          this.performRecover(playerId);
           return {
             ...prev,
-            currentLives: prev.maxLives,
-            isAlive: true,
             showAdModal: null,
           };
         default:
@@ -82,13 +105,12 @@ export class GameStateService {
       }
 
       if (prev.showAdModal === 'lives') {
-        setTimeout(() => {
-          this.setState((prev) => ({
-            ...prev,
-            currentLives: prev.maxLives,
-            isAlive: true,
-          }));
-        }, RESPAWN_TIME);
+        this.performRecover(playerId);
+        return {
+          ...prev,
+          showAdModal: null,
+          isRecovering: true,
+        };
       }
 
       return {
@@ -106,6 +128,7 @@ export class GameStateService {
   ): void {
     this.setState((prev) => {
       console.log('Shoot function');
+
       if (!prev.isAlive || !playerId) {
         console.log('❌ Shoot blocked - not alive or no player ID');
         return prev;
@@ -126,6 +149,9 @@ export class GameStateService {
         };
       }
 
+      if (this.isShooting) return { ...prev };
+      this.isShooting = true;
+
       const shootData: ShootData = {
         playerId: playerId,
         location,
@@ -141,6 +167,10 @@ export class GameStateService {
         data: shootData,
       });
 
+      setTimeout(() => {
+        this.isShooting = false;
+      }, 500);
+
       return {
         ...prev,
         currentAmmo: newAmmo,
@@ -151,6 +181,8 @@ export class GameStateService {
   // MARK: - handleHit
   public handleHit(damage: number): void {
     this.setState((prev) => {
+      if (!prev.isAlive || prev.isRecovering) return;
+
       const newLives = Math.max(
         0,
         prev.currentLives - Math.max(Math.round(damage), 1)
@@ -160,28 +192,17 @@ export class GameStateService {
       document.dispatchEvent(new CustomEvent('playerHit'));
 
       if (newLives === 0) {
+        console.log('❤️‍🩹 No lives left, showing ad modal');
         return {
           ...prev,
           currentLives: newLives,
-          isAlive: false,
           showAdModal: 'lives',
         };
-      }
-
-      if (newLives === 0 && !prev.showAdModal) {
-        setTimeout(() => {
-          this.setState((prev) => ({
-            ...prev,
-            currentLives: prev.maxLives,
-            isAlive: true,
-          }));
-        }, RESPAWN_TIME);
       }
 
       return {
         ...prev,
         currentLives: newLives,
-        isAlive: newLives > 0,
       };
     });
   }

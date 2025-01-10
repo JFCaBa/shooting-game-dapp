@@ -24,6 +24,7 @@ export class GameMessageService {
   ) => void;
   private lastKnownLocation: LocationData | null = null;
   private locationManager: LocationStateManager;
+  private state: GameState | null = null;
 
   constructor(
     wsInstance: WebSocketService,
@@ -32,7 +33,8 @@ export class GameMessageService {
     ) => void,
     setGeoObjects: React.Dispatch<React.SetStateAction<GeoObject[]>>,
     handleHit: (damage: number) => void,
-    getLocation: () => LocationData | null
+    getLocation: () => LocationData | null,
+    state: GameState
   ) {
     this.wsInstance = wsInstance;
     this.setState = setState;
@@ -47,6 +49,7 @@ export class GameMessageService {
     };
     this.setGeoObjects = setGeoObjects;
     this.locationManager = LocationStateManager.getInstance();
+    this.state = state;
   }
 
   // MARK: - handleShoot
@@ -76,7 +79,7 @@ export class GameMessageService {
       return;
     }
 
-    const hitValidation = await this.hitValidationService.validateHit(
+    const hitValidation = this.hitValidationService.validateHit(
       shootData.location,
       shootData.heading || 0,
       currentLocation
@@ -88,9 +91,12 @@ export class GameMessageService {
       distance: hitValidation.distance,
     });
 
-    const type = hitValidation.isValid
-      ? MessageType.HIT_CONFIRMED
-      : MessageType.SHOOT_CONFIRMED;
+    const type =
+      (hitValidation.isValid && this.state.currentLives) == 1
+        ? MessageType.KILL
+        : hitValidation.isValid
+        ? MessageType.HIT_CONFIRMED
+        : MessageType.SHOOT_CONFIRMED;
 
     const shootMessage: GameMessage = {
       type,
@@ -191,6 +197,7 @@ export class GameMessageService {
               kills: stats.kills ?? prev.gameScore.kills,
             },
             isReloading: false,
+            isRecovering: false,
           }));
         }
         break;

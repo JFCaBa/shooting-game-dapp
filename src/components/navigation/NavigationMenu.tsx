@@ -4,7 +4,7 @@ import { Screen } from '../../types/navigation';
 import ShootButton from '../game/ShootButton';
 import Radar from '../game/Radar';
 import { useGameContext } from '../../context/GameContext';
-import { useLocationContext } from '../../context/LocationContext';
+import { LocationStateManager } from '../../services/LocationStateManager';
 
 interface NavigationMenuProps {
   currentScreen: Screen;
@@ -16,8 +16,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onScreenChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { currentAmmo, isReloading, shoot } = useGameContext();
-  const { location, heading } = useLocationContext();
+  const { currentAmmo, isReloading, isRecovering, shoot } = useGameContext();
+  const locationManager = LocationStateManager.getInstance();
 
   const menuItems = [
     { id: 'inventory' as Screen, label: 'INVENTORY' },
@@ -29,6 +29,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   ];
 
   const handleShoot = () => {
+    const location = locationManager.getCurrentLocation();
+    const heading = locationManager.getCurrentHeading();
     try {
       shoot(location, heading);
     } catch (error) {
@@ -62,6 +64,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         <Radar />
         <ShootButton
           isReloading={isReloading}
+          isRecovering={isRecovering}
           currentAmmo={currentAmmo}
           onShoot={handleShoot}
         />

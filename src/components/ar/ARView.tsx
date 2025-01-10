@@ -33,6 +33,28 @@ const ARView: React.FC<ARViewProps> = ({
   const isDestroyedRef = useRef(false);
   const { location } = useLocationContext();
 
+  // MARK: - Cleanup handler
+  const cleanup = useCallback(() => {
+    isDestroyedRef.current = true;
+
+    // Cleanup effects
+    effectsRef.current.forEach((effect) => effect.destroy());
+    effectsRef.current.clear();
+
+    // Cleanup scene manager
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.cleanup();
+      sceneManagerRef.current = undefined;
+    }
+
+    hitDetectorRef.current = undefined;
+
+    // Force garbage collection hint
+    if (typeof window.gc === 'function') {
+      window.gc();
+    }
+  }, []);
+
   // MARK: - Filter visible geo objects based on distance
   const visibleGeoObjects = useMemo(() => {
     if (!location) return [];
@@ -120,29 +142,14 @@ const ARView: React.FC<ARViewProps> = ({
       }
 
       return () => {
-        isDestroyedRef.current = true;
         window.removeEventListener('resize', handleResize);
-
-        // Cleanup effects
-        effectsRef.current.forEach((effect) => effect.destroy());
-        effectsRef.current.clear();
-
-        // Cleanup scene manager
-        if (sceneManagerRef.current) {
-          sceneManagerRef.current.cleanup();
-          sceneManagerRef.current = undefined;
-        }
-
-        hitDetectorRef.current = undefined;
-
-        // Empty drones array
-        drones = [];
+        cleanup();
       };
     } catch (error) {
       console.error('Failed to initialize AR scene:', error);
       throw error;
     }
-  }, []);
+  }, [cleanup]);
 
   // MARK: - Setup shoot event listener
   useEffect(() => {
@@ -151,7 +158,6 @@ const ARView: React.FC<ARViewProps> = ({
   }, [handleShoot]);
 
   // MARK: - Check WebGL support
-
   useEffect(() => {
     const checkWebGL = () => {
       try {

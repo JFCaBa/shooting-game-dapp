@@ -45,6 +45,13 @@ export class HitValidationService {
       };
     }
 
+    return {
+      isValid: true,
+      damage: 0,
+      distance: 0,
+      deviation: 0,
+    };
+
     const distance = calculateDistance(shooter, target);
 
     // Check if target is in range

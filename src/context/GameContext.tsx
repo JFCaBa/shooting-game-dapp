@@ -48,7 +48,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       setState,
       setGeoObjects,
       (damage) => gameStateServiceRef.current?.handleHit(damage),
-      () => location
+      () => location,
+      state
     );
 
     const messageService = (message: GameMessage) =>

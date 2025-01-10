@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
 import Camera from '../components/game/Camera';
@@ -16,6 +16,7 @@ export const Game = React.memo(() => {
     currentAmmo,
     maxAmmo,
     isReloading,
+    isRecovering,
     currentLives,
     maxLives,
     players,
@@ -37,6 +38,20 @@ export const Game = React.memo(() => {
 
   // Memoize WebSocket service instance
   const wsService = useMemo(() => WebSocketService.getInstance(), []);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (playerId) {
+        // Send remove drones message to server
+        wsService.send({
+          type: MessageType.REMOVE_DRONES,
+          playerId: playerId,
+          data: {},
+        });
+      }
+    };
+  }, [playerId, wsService]);
 
   // Memoize handlers
   const handleDroneHit = useCallback(
@@ -172,6 +187,13 @@ export const Game = React.memo(() => {
         {isReloading && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-4xl">
             Reloading...
+          </div>
+        )}
+
+        {/* Recovering Overlay */}
+        {isRecovering && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-4xl">
+            Recovering...
           </div>
         )}
 
