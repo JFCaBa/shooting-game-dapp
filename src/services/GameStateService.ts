@@ -153,6 +153,9 @@ export class GameStateService {
     this.setState((prev) => {
       const newLives = Math.max(0, prev.currentLives - damage);
 
+      // Dispatch the hit event
+      document.dispatchEvent(new CustomEvent('playerHit'));
+
       if (newLives === 0) {
         return {
           ...prev,

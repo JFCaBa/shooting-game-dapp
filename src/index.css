@@ -15,7 +15,7 @@
     @apply px-4 py-2 rounded-lg bg-game-primary text-white font-medium 
     hover:bg-opacity-90 active:bg-opacity-80 transition-colors;
   }
-  
+
   .status-bar {
     @apply h-2 rounded-full overflow-hidden bg-gray-700;
   }
@@ -31,4 +31,17 @@
     scrollbar-width: none;
     /* Hide scrollbar for Firefox */
   }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-fadeOut {
+  animation: fadeOut 2s ease-out forwards;
 }

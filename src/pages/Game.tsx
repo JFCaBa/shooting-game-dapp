@@ -1,4 +1,3 @@
-// src/pages/Game.tsx
 import React, { useCallback, useMemo } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -8,6 +7,7 @@ import Crosshair from '../components/game/Crosshair';
 import StatusBar from '../components/game/StatusBar';
 import GameStatus from '../components/game/GameStatus';
 import RewardAdModal from '../components/modals/RewardAdModal';
+import HitEffect from '../components/game/HitEffect';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 
@@ -142,6 +142,9 @@ export const Game = React.memo(() => {
     [drones.length, gameScore.hits, gameScore.kills, wsService.isConnected]
   );
 
+  // Memoize HitEffect to prevent unnecessary re-renders
+  const hitEffect = useMemo(() => <HitEffect />, []);
+
   return (
     <div className="relative h-screen w-full overflow-hidden">
       {/* Base layer - Camera */}
@@ -171,6 +174,9 @@ export const Game = React.memo(() => {
             Reloading...
           </div>
         )}
+
+        {/* Hit Effect Layer */}
+        {hitEffect}
 
         {/* Ad Modal */}
         {showAdModal && (

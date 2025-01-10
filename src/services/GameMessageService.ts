@@ -11,6 +11,7 @@ import { WebSocketService } from './WebSocketService';
 import { GameState } from '../types/gameContext';
 import { PlayerStats } from '../types/player';
 import { LocationData } from '../types/game';
+import { LocationStateManager } from './LocationStateManager';
 
 export class GameMessageService {
   private wsInstance: WebSocketService;
@@ -21,6 +22,8 @@ export class GameMessageService {
   private setState: (
     state: GameState | ((prevState: GameState) => GameState)
   ) => void;
+  private lastKnownLocation: LocationData | null = null;
+  private locationManager: LocationStateManager;
 
   constructor(
     wsInstance: WebSocketService,
@@ -35,20 +38,15 @@ export class GameMessageService {
     this.setState = setState;
     this.hitValidationService = HitValidationService.getInstance();
     this.handleHit = handleHit;
-    this.getLocation = getLocation;
+    this.getLocation = () => {
+      const currentLocation = getLocation();
+      if (currentLocation) {
+        this.lastKnownLocation = currentLocation;
+      }
+      return this.lastKnownLocation;
+    };
     this.setGeoObjects = setGeoObjects;
-  }
-
-  // MARK: - handleGeoObjectUpdate
-  private handleGeoObjectUpdate(message: GameMessage): void {
-    if (message.data) {
-      const newGeoObject = message.data as GeoObject;
-      this.setGeoObjects((prevObjects) => [...prevObjects, newGeoObject]);
-      this.setState((prev) => ({
-        ...prev,
-        geoObjects: [...prev.geoObjects, newGeoObject],
-      }));
-    }
+    this.locationManager = LocationStateManager.getInstance();
   }
 
   // MARK: - handleShoot
@@ -57,21 +55,38 @@ export class GameMessageService {
     shootData: ShootData,
     currentPlayerId: string
   ): Promise<void> {
-    const currentLocation = this.getLocation();
+    const currentLocation = this.locationManager.getCurrentLocation();
+
+    console.log('Handling shoot with locations:', {
+      currentLocation: currentLocation,
+      lastKnownLocation: this.lastKnownLocation,
+      shooterLocation: shootData?.location,
+      messageType: message.type,
+    });
+
     if (!shootData || !shootData.location || !currentLocation) {
       console.log('Missing required data for shot validation:', {
         hasShootData: !!shootData,
         hasShootLocation: !!shootData?.location,
         hasCurrentLocation: !!currentLocation,
+        currentLocation,
+        shooterLocation: shootData?.location,
+        lastKnownLocation: this.lastKnownLocation,
       });
       return;
     }
 
     const hitValidation = await this.hitValidationService.validateHit(
       shootData.location,
-      shootData.heading,
+      shootData.heading || 0,
       currentLocation
     );
+
+    console.log('Hit validation result:', {
+      isValid: hitValidation.isValid,
+      damage: hitValidation.damage,
+      distance: hitValidation.distance,
+    });
 
     const type = hitValidation.isValid
       ? MessageType.HIT_CONFIRMED
@@ -93,7 +108,21 @@ export class GameMessageService {
     };
 
     this.wsInstance.send(shootMessage);
-    this.handleHit(hitValidation.damage);
+    if (hitValidation.isValid) {
+      this.handleHit(hitValidation.damage);
+    }
+  }
+
+  // MARK: - handleGeoObjectUpdate
+  private handleGeoObjectUpdate(message: GameMessage): void {
+    if (message.data) {
+      const newGeoObject = message.data as GeoObject;
+      this.setGeoObjects((prevObjects) => [...prevObjects, newGeoObject]);
+      this.setState((prev) => ({
+        ...prev,
+        geoObjects: [...prev.geoObjects, newGeoObject],
+      }));
+    }
   }
 
   // MARK: - showReward
@@ -127,12 +156,14 @@ export class GameMessageService {
   ): Promise<void> {
     if (message.type === MessageType.WEBSOCKET_CONNECTED) {
       try {
+        const currentLocation = this.getLocation();
         const pushToken = localStorage.getItem('pushToken');
 
         const joinMessage: GameMessage = {
           type: MessageType.JOIN,
           playerId: currentPlayerId,
           data: {
+            location: currentLocation, // Include location if available
             playerId: currentPlayerId,
             kind: 'player',
             heading: 0,

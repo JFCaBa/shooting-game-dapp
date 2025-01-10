@@ -1,12 +1,6 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from 'react';
-import { LocationData } from '../services/LocationService';
-import { HeadingService } from '../services/HeadingService';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { LocationData } from '../types/game';
+import { LocationStateManager } from '../services/LocationStateManager';
 
 interface LocationContextType {
   location: LocationData | null;
@@ -22,45 +16,38 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [heading, setHeading] = useState<number | null>(null);
-  const headingService = HeadingService.getInstance();
 
-  // Watch position updates
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    const locationManager = LocationStateManager.getInstance();
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          altitude: position.coords.altitude || 0,
-          accuracy: position.coords.accuracy,
-        });
-      },
-      (error) => console.error('Error watching position:', error),
-      { enableHighAccuracy: true, maximumAge: 0 }
-    );
+    // Initialize with current values
+    setLocation(locationManager.getCurrentLocation());
+    setHeading(locationManager.getCurrentHeading());
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+    // Subscribe to updates
+    const unsubLocation = locationManager.subscribeToLocation((newLocation) => {
+      console.log('LocationContext: Location updated:', newLocation);
+      setLocation(newLocation);
+    });
 
-  // Watch heading updates
-  useEffect(() => {
-    const updateHeading = () => {
-      const newHeading = headingService.getHeading();
-      if (newHeading !== null) {
-        setHeading(newHeading);
-      }
+    const unsubHeading = locationManager.subscribeToHeading((newHeading) => {
+      setHeading(newHeading);
+    });
+
+    return () => {
+      unsubLocation();
+      unsubHeading();
     };
-
-    // Update heading every 100ms
-    const intervalId = setInterval(updateHeading, 100);
-
-    return () => clearInterval(intervalId);
   }, []);
 
+  const value = {
+    location,
+    heading,
+  };
+
+  // We can now safely provide these values as they'll be consistently available
   return (
-    <LocationContext.Provider value={{ location, heading }}>
+    <LocationContext.Provider value={value}>
       {children}
     </LocationContext.Provider>
   );
@@ -74,6 +61,11 @@ export const useLocationContext = () => {
     );
   }
   return context;
+};
+
+// Add a direct way to get the current location without context
+export const getCurrentLocation = (): LocationData | null => {
+  return LocationStateManager.getInstance().getCurrentLocation();
 };
 
 export default LocationContext;
