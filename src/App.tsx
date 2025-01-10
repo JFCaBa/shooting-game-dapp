@@ -82,20 +82,8 @@ const GameLayout = () => {
       setShowAuthBanner(true);
       return;
     }
-
-    if (
-      screen === 'game' ||
-      screen === 'map' ||
-      screen === 'achievements' ||
-      screen === 'hallOfFame' ||
-      screen === 'settings' ||
-      screen === 'wallet'
-    ) {
-      setCurrentScreen(screen);
-      setShowAuthBanner(false);
-    } else {
-      setShowComingSoon(true);
-    }
+    setCurrentScreen(screen);
+    setShowAuthBanner(false);
   };
 
   const handleSignOut = () => {

@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   // Game related endpoints
   HALL_OF_FAME: `${BASE_URL}/api/v1/halloffame/kills`,
   AD_REWARD: `${BASE_URL}/api/v1/players/adReward`,
+  GEO_OBJECTS: `${BASE_URL}/api/v1/players/geoobjects`,
 
   // WebSocket endpoint with correct port
   WEBSOCKET:
