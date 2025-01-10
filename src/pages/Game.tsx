@@ -82,9 +82,9 @@ export const Game = () => {
       });
 
       // Remove the object from the game context
-      setGeoObjects((prevObjects) =>
-        prevObjects.filter((obj) => obj.id !== geoObjectId)
-      );
+      // setGeoObjects((prevObjects) =>
+      //   prevObjects.filter((obj) => obj.id !== geoObjectId)
+      // );
 
       updateGameScore({
         type: 'GEO_OBJECT_HIT',

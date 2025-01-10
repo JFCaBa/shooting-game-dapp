@@ -30,12 +30,9 @@ const ShootButton: React.FC<ShootButtonProps> = memo(
         return;
       }
 
-      console.log('Shoot button pressed, dispatching gameShoot event');
-
       // First dispatch the gameShoot event
       const shootEvent = new CustomEvent('gameShoot');
       document.dispatchEvent(shootEvent);
-      console.log('gameShoot event dispatched');
 
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
