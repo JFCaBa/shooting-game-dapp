@@ -10,7 +10,7 @@ const ShootButton: React.FC<ShootButtonProps> = memo(
   ({ isReloading, currentAmmo, onShoot }) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const lastShootTime = useRef<number>(0);
-    const SHOOT_COOLDOWN = 250; // 250ms cooldown between shots
+    const SHOOT_COOLDOWN = 500; // 500ms cooldown between shots
 
     useEffect(() => {
       audioRef.current = new Audio('/assets/shoot_sound.wav');
