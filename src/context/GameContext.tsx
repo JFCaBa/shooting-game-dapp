@@ -47,7 +47,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       wsInstance,
       setState,
       setGeoObjects,
-      (damage) => gameStateServiceRef.current?.handleHit(damage),
+      (damage, shooterId) =>
+        gameStateServiceRef.current?.handleHit(damage, shooterId),
       () => location,
       state
     );

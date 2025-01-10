@@ -17,7 +17,7 @@ export class GameMessageService {
   private wsInstance: WebSocketService;
   private hitValidationService: HitValidationService;
   private getLocation: () => LocationData | null;
-  private handleHit: (damage: number) => void;
+  private handleHit: (damage: number, shooterId?: string) => void;
   private setGeoObjects: React.Dispatch<React.SetStateAction<GeoObject[]>>;
   private setState: (
     state: GameState | ((prevState: GameState) => GameState)
@@ -32,7 +32,7 @@ export class GameMessageService {
       state: GameState | ((prevState: GameState) => GameState)
     ) => void,
     setGeoObjects: React.Dispatch<React.SetStateAction<GeoObject[]>>,
-    handleHit: (damage: number) => void,
+    handleHit: (damage: number, shooterId?: string) => void,
     getLocation: () => LocationData | null,
     state: GameState
   ) {
@@ -60,22 +60,8 @@ export class GameMessageService {
   ): Promise<void> {
     const currentLocation = this.locationManager.getCurrentLocation();
 
-    console.log('Handling shoot with locations:', {
-      currentLocation: currentLocation,
-      lastKnownLocation: this.lastKnownLocation,
-      shooterLocation: shootData?.location,
-      messageType: message.type,
-    });
-
     if (!shootData || !shootData.location || !currentLocation) {
-      console.log('Missing required data for shot validation:', {
-        hasShootData: !!shootData,
-        hasShootLocation: !!shootData?.location,
-        hasCurrentLocation: !!currentLocation,
-        currentLocation,
-        shooterLocation: shootData?.location,
-        lastKnownLocation: this.lastKnownLocation,
-      });
+      console.log('Missing required data for shot validation');
       return;
     }
 
@@ -85,18 +71,9 @@ export class GameMessageService {
       currentLocation
     );
 
-    console.log('Hit validation result:', {
-      isValid: hitValidation.isValid,
-      damage: hitValidation.damage,
-      distance: hitValidation.distance,
-    });
-
-    const type =
-      (hitValidation.isValid && this.state.currentLives) == 1
-        ? MessageType.KILL
-        : hitValidation.isValid
-        ? MessageType.HIT_CONFIRMED
-        : MessageType.SHOOT_CONFIRMED;
+    const type = hitValidation.isValid
+      ? MessageType.HIT_CONFIRMED
+      : MessageType.SHOOT_CONFIRMED;
 
     const shootMessage: GameMessage = {
       type,
@@ -115,7 +92,8 @@ export class GameMessageService {
 
     this.wsInstance.send(shootMessage);
     if (hitValidation.isValid) {
-      this.handleHit(hitValidation.damage);
+      // Pass the shooter's ID when handling hit
+      this.handleHit(hitValidation.damage, message.playerId);
     }
   }
 
@@ -229,7 +207,7 @@ export class GameMessageService {
           message.data &&
           message.data.shoot?.hitPlayerId === currentPlayerId
         ) {
-          this.handleHit(message.data.shoot.damage);
+          this.handleHit(message.data.shoot.damage, message.playerId);
         }
         break;
 

@@ -178,10 +178,25 @@ export class GameStateService {
     });
   }
 
+  // MARK: - sendKillMessage
+
+  private sendKillMessage(targetPlayerId: string, playerId: string): void {
+    const killMessage: GameMessage = {
+      type: MessageType.KILL,
+      playerId: playerId,
+      senderId: targetPlayerId,
+      data: {
+        hitPlayerId: targetPlayerId,
+      },
+    };
+    this.wsInstance.send(killMessage);
+  }
+
   // MARK: - handleHit
-  public handleHit(damage: number): void {
+
+  public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
-      if (!prev.isAlive || prev.isRecovering) return;
+      if (!prev.isAlive || prev.isRecovering) return prev;
 
       const newLives = Math.max(
         0,
@@ -191,12 +206,16 @@ export class GameStateService {
       // Dispatch the hit event
       document.dispatchEvent(new CustomEvent('playerHit'));
 
-      if (newLives === 0) {
+      if (newLives === 0 && shooterPlayerId && prev.playerId) {
+        // Send KILL message when lives reach 0
+        this.sendKillMessage(prev.playerId, shooterPlayerId);
+
         console.log('❤️‍🩹 No lives left, showing ad modal');
         return {
           ...prev,
           currentLives: newLives,
           showAdModal: 'lives',
+          isAlive: false,
         };
       }
 
