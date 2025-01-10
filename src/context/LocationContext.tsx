@@ -37,7 +37,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({
           accuracy: position.coords.accuracy,
         });
       },
-      (error) => console.error('Error watching position:', error)
+      (error) => console.error('Error watching position:', error),
+      { enableHighAccuracy: true, maximumAge: 0 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);

@@ -161,14 +161,10 @@ export class SmokeEffect {
     }
 
     // Dispose resources
-    if (this.geometry) {
-      disposeGeometry(this.geometry);
-    }
-    if (this.material) {
-      disposeMaterial(this.material);
-    }
+    this.geometry.dispose();
+    this.material.dispose();
 
-    // Clear references
+    // Ensure no lingering references
     this.points.geometry = null;
     this.points.material = null;
   }

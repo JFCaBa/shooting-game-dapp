@@ -6,7 +6,6 @@ import { GeoObject } from '../../types/game';
 import { ARSceneManager } from './scene/ARSceneManager';
 import { HitDetector } from './hit-detection/HitDetector';
 import { SmokeEffect } from './effects/SmokeEffect';
-import { PullDownEffect } from './effects/PullDownEffect';
 import ARDroneModel from './ARDroneModel';
 import GeoObjectNode from './GeoObjectNode';
 import Camera from '../game/Camera';

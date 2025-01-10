@@ -25,15 +25,22 @@ import DevicePermissionsHandler from './components/permissions/DevicePermissions
 import { adManager } from './services/AdManager';
 import { WalletProvider } from './context/WalletContext';
 
-// AuthBanner component for unauthenticated users
-const AuthBanner = ({
-  onClose,
-  onCreateUser,
-}: {
+interface AuthBannerProps {
   onClose: () => void;
   onCreateUser: () => void;
+  currentScreen: Screen;
+}
+
+const AuthBanner: React.FC<AuthBannerProps> = ({
+  onClose,
+  onCreateUser,
+  currentScreen,
 }) => (
-  <div className="absolute top-40 left-0 right-0 bg-game-secondary bg-opacity-90 p-4 text-white">
+  <div
+    className={`absolute ${
+      currentScreen === 'map' ? 'top-0' : 'top-40'
+    } left-0 right-0 bg-game-secondary bg-opacity-90 p-4 text-white`}
+  >
     <div className="flex justify-between items-center">
       <p>Access restricted</p>
       <div className="space-x-4">
@@ -131,6 +138,7 @@ const GameLayout = () => {
           <AuthBanner
             onClose={() => setShowAuthBanner(false)}
             onCreateUser={handleCreateUser}
+            currentScreen={currentScreen}
           />
         )}
       </div>
