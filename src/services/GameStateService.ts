@@ -183,8 +183,8 @@ export class GameStateService {
   private sendKillMessage(targetPlayerId: string, playerId: string): void {
     const killMessage: GameMessage = {
       type: MessageType.KILL,
-      playerId: playerId,
-      senderId: targetPlayerId,
+      playerId: targetPlayerId,
+      senderId: playerId,
       data: {
         hitPlayerId: targetPlayerId,
       },
