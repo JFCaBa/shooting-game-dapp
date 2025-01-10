@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 
-const Crosshair = () => {
+const Crosshair = memo(() => {
   const [isRecoiling, setIsRecoiling] = useState(false);
 
   useEffect(() => {
-    const handleShoot = () => {
-      setIsRecoiling(true);
-      setTimeout(() => setIsRecoiling(false), 100);
+    const handleShoot = (e: Event) => {
+      e.stopPropagation(); // Prevent event bubbling
+      if (!isRecoiling) {
+        setIsRecoiling(true);
+        setTimeout(() => setIsRecoiling(false), 100);
+      }
     };
 
-    // Listen for shoot events instead of clicks
     document.addEventListener('gameShoot', handleShoot);
     return () => document.removeEventListener('gameShoot', handleShoot);
-  }, []);
+  }, [isRecoiling]);
 
   return (
     <div
@@ -32,6 +34,8 @@ const Crosshair = () => {
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-red-500 rounded-full" />
     </div>
   );
-};
+});
+
+Crosshair.displayName = 'Crosshair';
 
 export default Crosshair;

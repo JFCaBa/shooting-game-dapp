@@ -1,5 +1,5 @@
 // src/pages/Game.tsx
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
 import Camera from '../components/game/Camera';
@@ -11,7 +11,7 @@ import RewardAdModal from '../components/modals/RewardAdModal';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 
-export const Game = () => {
+export const Game = React.memo(() => {
   const {
     currentAmmo,
     maxAmmo,
@@ -30,25 +30,24 @@ export const Game = () => {
   } = useGameContext();
   const { location } = useLocationContext();
 
-  // Keep track of other players for debugging/monitoring
-  const otherPlayers = React.useMemo(() => {
+  // Memoize other players calculation
+  const otherPlayers = useMemo(() => {
     return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
 
+  // Memoize WebSocket service instance
+  const wsService = useMemo(() => WebSocketService.getInstance(), []);
+
+  // Memoize handlers
   const handleDroneHit = useCallback(
     (droneId: string) => {
       console.log('Drone hit:', droneId);
-      const wsService = WebSocketService.getInstance();
       wsService.send({
         type: MessageType.SHOOT_DRONE,
         playerId: playerId!,
         data: {
           droneId: droneId,
-          position: {
-            x: 0,
-            y: 0,
-            z: 0,
-          },
+          position: { x: 0, y: 0, z: 0 },
           kind: 'drone',
         },
       });
@@ -58,20 +57,19 @@ export const Game = () => {
         droneId: droneId,
       });
     },
-    [playerId, updateGameScore]
+    [playerId, updateGameScore, wsService]
   );
 
   const handleGeoObjectHit = useCallback(
     (geoObjectId: string) => {
-      console.log('GeoObject hit:', geoObjectId);
-      const targetObject = geoObjects?.find((obj) => obj.id === geoObjectId);
+      if (!playerId || !location) return;
 
+      const targetObject = geoObjects?.find((obj) => obj.id === geoObjectId);
       if (!targetObject) return;
 
-      const wsService = WebSocketService.getInstance();
       wsService.send({
         type: MessageType.GEO_OBJECT_HIT,
-        playerId: playerId!,
+        playerId: playerId,
         data: {
           geoObject: targetObject,
           location: location,
@@ -79,7 +77,6 @@ export const Game = () => {
         },
       });
 
-      // Update game score through context
       updateGameScore({
         type: 'GEO_OBJECT_HIT',
         geoObjectId: geoObjectId,
@@ -91,18 +88,58 @@ export const Game = () => {
 
       // Show reward message if applicable
       if (targetObject.metadata?.reward) {
-        const message = `+${targetObject.metadata.reward}`;
         document.dispatchEvent(
           new CustomEvent('showReward', {
             detail: {
-              message,
+              message: `+${targetObject.metadata.reward}`,
               position: { x: window.innerWidth / 2, y: window.innerHeight / 3 },
             },
           })
         );
       }
     },
-    [playerId, geoObjects, location, updateGameScore]
+    [playerId, geoObjects, location, wsService, updateGameScore]
+  );
+
+  // Memoize AR view to prevent unnecessary re-renders
+  const arView = useMemo(() => {
+    if (!location) return null;
+    return (
+      <div className="absolute inset-0">
+        <ARView
+          drones={drones}
+          geoObjects={geoObjects}
+          onDroneShoot={handleDroneHit}
+          onGeoObjectHit={handleGeoObjectHit}
+        />
+      </div>
+    );
+  }, [location, drones, geoObjects, handleDroneHit, handleGeoObjectHit]);
+
+  // Memoize status components
+  const statusBar = useMemo(
+    () => (
+      <StatusBar
+        ammo={currentAmmo}
+        maxAmmo={maxAmmo}
+        lives={currentLives}
+        maxLives={maxLives}
+      />
+    ),
+    [currentAmmo, maxAmmo, currentLives, maxLives]
+  );
+
+  const gameStatus = useMemo(
+    () => (
+      <GameStatus
+        droneCount={drones.length}
+        hits={gameScore.hits}
+        kills={gameScore.kills}
+        isOnline={navigator.onLine}
+        isWebSocketConnected={wsService.isConnected}
+      />
+    ),
+    [drones.length, gameScore.hits, gameScore.kills, wsService.isConnected]
   );
 
   return (
@@ -113,35 +150,14 @@ export const Game = () => {
       </div>
 
       {/* AR Layer */}
-      {location && (
-        <div className="absolute inset-0">
-          <ARView
-            drones={drones}
-            geoObjects={geoObjects}
-            onDroneShoot={handleDroneHit}
-            onGeoObjectHit={handleGeoObjectHit}
-          />
-        </div>
-      )}
+      {arView}
 
       {/* UI Layer */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Status Bar */}
         <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-80 pointer-events-auto">
-          <StatusBar
-            ammo={currentAmmo}
-            maxAmmo={maxAmmo}
-            lives={currentLives}
-            maxLives={maxLives}
-          />
-          {/* Game status */}
-          <GameStatus
-            droneCount={drones.length}
-            hits={gameScore.hits}
-            kills={gameScore.kills}
-            isOnline={navigator.onLine}
-            isWebSocketConnected={WebSocketService.getInstance().isConnected}
-          />
+          {statusBar}
+          {gameStatus}
         </div>
 
         {/* Crosshair */}
@@ -173,4 +189,8 @@ export const Game = () => {
       </div>
     </div>
   );
-};
+});
+
+Game.displayName = 'Game';
+
+export default Game;

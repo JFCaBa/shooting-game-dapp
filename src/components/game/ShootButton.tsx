@@ -9,6 +9,8 @@ interface ShootButtonProps {
 const ShootButton: React.FC<ShootButtonProps> = memo(
   ({ isReloading, currentAmmo, onShoot }) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const lastShootTime = useRef<number>(0);
+    const SHOOT_COOLDOWN = 250; // 250ms cooldown between shots
 
     useEffect(() => {
       audioRef.current = new Audio('/assets/shoot_sound.wav');
@@ -24,14 +26,23 @@ const ShootButton: React.FC<ShootButtonProps> = memo(
 
     const handleShoot = (e: React.MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation(); // Prevent event bubbling
 
-      if (isReloading || currentAmmo <= 0) {
-        console.log('Shoot blocked:', { isReloading, currentAmmo });
+      const now = Date.now();
+      if (now - lastShootTime.current < SHOOT_COOLDOWN) {
+        console.log('Shot cooldown in effect');
         return;
       }
 
+      if (isReloading || currentAmmo <= 0) {
+        console.log('Shot blocked:', { isReloading, currentAmmo });
+        return;
+      }
+
+      lastShootTime.current = now;
+
       // First dispatch the gameShoot event
-      const shootEvent = new CustomEvent('gameShoot');
+      const shootEvent = new CustomEvent('gameShoot', { bubbles: false });
       document.dispatchEvent(shootEvent);
 
       if (audioRef.current) {

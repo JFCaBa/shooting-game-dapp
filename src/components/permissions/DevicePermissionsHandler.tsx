@@ -13,18 +13,6 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
   useEffect(() => {
     const requestPermissions = async () => {
       try {
-        // Request notifications permission
-        if ('Notification' in window && firebaseService.isReady()) {
-          try {
-            const token = await firebaseService.requestPermission();
-            if (token) {
-              console.log('Notification permission granted and token obtained');
-            }
-          } catch (err) {
-            console.error('Error requesting notification permission:', err);
-          }
-        }
-
         // Request device orientation permissions
         if (
           typeof DeviceOrientationEvent !== 'undefined' &&
@@ -73,6 +61,18 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
           await navigator.geolocation.getCurrentPosition(() => {});
         } catch (err) {
           console.error('Error requesting location permission:', err);
+        }
+
+        // Request notifications permission
+        if ('Notification' in window && firebaseService.isReady()) {
+          try {
+            const token = await firebaseService.requestPermission();
+            if (token) {
+              console.log('Notification permission granted and token obtained');
+            }
+          } catch (err) {
+            console.error('Error requesting notification permission:', err);
+          }
         }
       } catch (error) {
         console.error('Error requesting permissions:', error);
