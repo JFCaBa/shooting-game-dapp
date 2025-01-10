@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { firebaseService } from '../../services/FirebaseService';
 
 interface DevicePermissionsHandlerProps {
   children: React.ReactNode;
@@ -12,6 +13,18 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
   useEffect(() => {
     const requestPermissions = async () => {
       try {
+        // Request notifications permission
+        if ('Notification' in window && firebaseService.isReady()) {
+          try {
+            const token = await firebaseService.requestPermission();
+            if (token) {
+              console.log('Notification permission granted and token obtained');
+            }
+          } catch (err) {
+            console.error('Error requesting notification permission:', err);
+          }
+        }
+
         // Request device orientation permissions
         if (
           typeof DeviceOrientationEvent !== 'undefined' &&
@@ -104,6 +117,7 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
           <p>• Camera access for AR view</p>
           <p>• Location for player positioning</p>
           <p>• Motion sensors for AR controls</p>
+          <p>• Notifications for game updates</p>
         </div>
 
         {/* Privacy Policy and Terms & Conditions Links */}
