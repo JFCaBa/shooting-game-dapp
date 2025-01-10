@@ -20,6 +20,8 @@ export class ARSceneManager {
     this.setupGeoObjectManager();
   }
 
+  // MARK: - createCamera
+
   private createCamera(): THREE.PerspectiveCamera {
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -35,6 +37,8 @@ export class ARSceneManager {
     });
     return camera;
   }
+
+  // MARK: - createRender
 
   private createRenderer(container: HTMLElement): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
@@ -53,11 +57,15 @@ export class ARSceneManager {
     return renderer;
   }
 
+  // MARK: - createControls
+
   private createControls(): DeviceOrientationControls {
     const controls = new DeviceOrientationControls(this.camera);
     console.log('Device orientation controls created');
     return controls;
   }
+
+  // MARK: - setupLighting
 
   private setupLighting(): void {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -69,6 +77,8 @@ export class ARSceneManager {
     console.log('Lighting setup completed');
   }
 
+  // MARK: - setupGeoObjectManager
+
   private setupGeoObjectManager(): void {
     geoObjectManager.initialize(this.scene);
     geoObjectManager.setUpdateCallback((count) => {
@@ -76,6 +86,8 @@ export class ARSceneManager {
     });
     console.log('GeoObjectManager initialized');
   }
+
+  // MARK: - startAnimation
 
   public startAnimation(): void {
     if (this.isDestroyed || this.animationFrameId !== null) return;
@@ -95,6 +107,8 @@ export class ARSceneManager {
     console.log('Animation loop started');
   }
 
+  // MARK: - handleResize
+
   public handleResize(): void {
     if (this.isDestroyed) return;
 
@@ -107,6 +121,8 @@ export class ARSceneManager {
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(window.devicePixelRatio);
   }
+
+  // MARK: - cleanup
 
   public cleanup(): void {
     if (this.isDestroyed) return;

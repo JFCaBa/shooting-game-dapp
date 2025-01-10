@@ -24,12 +24,16 @@ export class HitValidationService {
     this.locationService = LocationService.getInstance();
   }
 
+  // MARK: - getInstance
+
   static getInstance(): HitValidationService {
     if (!HitValidationService.instance) {
       HitValidationService.instance = new HitValidationService();
     }
     return HitValidationService.instance;
   }
+
+  // MARK: - validateHit
 
   validateHit(
     shooter: LocationData,
@@ -44,13 +48,6 @@ export class HitValidationService {
         deviation: 0,
       };
     }
-
-    return {
-      isValid: true,
-      damage: 0,
-      distance: 0,
-      deviation: 0,
-    };
 
     const distance = calculateDistance(shooter, target);
 
@@ -89,6 +86,8 @@ export class HitValidationService {
       deviation,
     };
   }
+
+  // MARK: - calculateDamage
 
   private calculateDamage(distance: number): number {
     // Damage decreases linearly with distance

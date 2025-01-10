@@ -21,6 +21,8 @@ export class HitDetector {
     this.camera = camera;
   }
 
+  // MARK: - checkHit
+
   public checkHit(
     onDroneHit: DroneHitCallback,
     onGeoObjectHit: GeoObjectHitCallback
@@ -29,15 +31,15 @@ export class HitDetector {
     this.raycaster.setFromCamera(crosshair, this.camera);
 
     // Debug ray visualization
-    const rayHelper = new THREE.ArrowHelper(
-      this.raycaster.ray.direction,
-      this.camera.position,
-      50,
-      0xff0000,
-      2,
-      1
-    );
-    this.scene.add(rayHelper);
+    // const rayHelper = new THREE.ArrowHelper(
+    //   this.raycaster.ray.direction,
+    //   this.camera.position,
+    //   50,
+    //   0xff0000,
+    //   2,
+    //   1
+    // );
+    // this.scene.add(rayHelper);
 
     const targetGroup = this.getTargetMeshes();
     const intersects = this.raycaster.intersectObjects(targetGroup);
@@ -46,12 +48,14 @@ export class HitDetector {
       this.processHit(intersects[0], onDroneHit, onGeoObjectHit);
     }
 
-    setTimeout(() => {
-      if (this.scene) {
-        this.scene.remove(rayHelper);
-      }
-    }, 500);
+    // setTimeout(() => {
+    //   if (this.scene) {
+    //     this.scene.remove(rayHelper);
+    //   }
+    // }, 500);
   }
+
+  // MARK: getTargetMeshes
 
   private getTargetMeshes(): THREE.Object3D[] {
     const targetMeshes: THREE.Object3D[] = [];
@@ -77,6 +81,8 @@ export class HitDetector {
 
     return targetMeshes;
   }
+
+  // MARK: - processHit
 
   private processHit(
     intersection: THREE.Intersection,
