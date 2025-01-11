@@ -118,7 +118,6 @@ export const Game = React.memo(() => {
 
   // Memoize AR view to prevent unnecessary re-renders
   const arView = useMemo(() => {
-    if (!location) return null;
     return (
       <div className="absolute inset-0">
         <ARView
@@ -129,7 +128,7 @@ export const Game = React.memo(() => {
         />
       </div>
     );
-  }, [location, drones, geoObjects, handleDroneHit, handleGeoObjectHit]);
+  }, [drones, geoObjects, handleDroneHit, handleGeoObjectHit]);
 
   // Memoize status components
   const statusBar = useMemo(
