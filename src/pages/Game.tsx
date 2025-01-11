@@ -118,6 +118,7 @@ export const Game = React.memo(() => {
     [playerId, geoObjects, location, send, updateGameScore]
   );
 
+  // Memoize AR view to prevent unnecessary re-renders
   const arView = (
     <div className="absolute inset-0">
       <ARView
@@ -130,29 +131,23 @@ export const Game = React.memo(() => {
   );
 
   // Memoize status components
-  const statusBar = useMemo(
-    () => (
-      <StatusBar
-        ammo={currentAmmo}
-        maxAmmo={maxAmmo}
-        lives={currentLives}
-        maxLives={maxLives}
-      />
-    ),
-    [currentAmmo, maxAmmo, currentLives, maxLives]
+  const statusBar = (
+    <StatusBar
+      ammo={currentAmmo}
+      maxAmmo={maxAmmo}
+      lives={currentLives}
+      maxLives={maxLives}
+    />
   );
 
-  const gameStatus = useMemo(
-    () => (
-      <GameStatus
-        droneCount={drones.length}
-        hits={gameScore.hits}
-        kills={gameScore.kills}
-        isOnline={navigator.onLine}
-        isWebSocketConnected={isConnected}
-      />
-    ),
-    [drones.length, gameScore.hits, gameScore.kills, isConnected]
+  const gameStatus = (
+    <GameStatus
+      droneCount={drones.length}
+      hits={gameScore.hits}
+      kills={gameScore.kills}
+      isOnline={navigator.onLine}
+      isWebSocketConnected={isConnected}
+    />
   );
 
   // Memoize HitEffect to prevent unnecessary re-renders

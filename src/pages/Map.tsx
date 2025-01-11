@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useLocationContext } from '../context/LocationContext';
@@ -8,6 +8,7 @@ import PlayerMarker from '../components/map/PlayerMarker';
 import GeoObjectMarker from '../components/map/GeoObjectMarker';
 import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
+import { LocationStateManager } from '../services/LocationStateManager';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
 
@@ -25,6 +26,8 @@ const Map = () => {
   const geoObjectMarkerRefs = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const { location } = useLocationContext();
   const { players, playerId, geoObjects } = useGameContext();
+  const [isFollowingUser, setIsFollowingUser] = useState(true);
+  const locationManager = LocationStateManager.getInstance();
 
   // Initialize map once
   useEffect(() => {
@@ -37,10 +40,54 @@ const Map = () => {
       zoom: 15,
     });
 
+    // Add navigation control
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Add follow mode toggle button
+    const followButton = document.createElement('button');
+    followButton.className = 'mapboxgl-ctrl-icon follow-button';
+    followButton.style.cssText = `
+      width: 29px;
+      height: 29px;
+      background: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 5px;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.1);
+      cursor: pointer;
+      margin: 5px;
+    `;
+    followButton.innerHTML = `
+      <svg viewBox="0 0 24 24" style="width: 100%; height: 100%;">
+        <path fill="${isFollowingUser ? '#4CAF50' : '#666'}" 
+              d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+      </svg>
+    `;
+
+    const customControl = document.createElement('div');
+    customControl.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+    customControl.appendChild(followButton);
+    map.addControl(
+      { onAdd: () => customControl, onRemove: () => {} },
+      'top-right'
+    );
+
+    followButton.onclick = () => {
+      setIsFollowingUser(!isFollowingUser);
+      if (!isFollowingUser && location) {
+        map.easeTo({
+          center: [location.longitude, location.latitude],
+          duration: 1000,
+        });
+      }
+    };
+
+    // Handle map interaction to disable follow mode
+    map.on('dragstart', () => setIsFollowingUser(false));
+
     mapRef.current = map;
 
-    // Add current player marker once
+    // Add current player marker
     const markerElement = document.createElement('div');
     const root = createRoot(markerElement);
     root.render(
@@ -60,7 +107,7 @@ const Map = () => {
       .setLngLat([location.longitude, location.latitude])
       .addTo(map);
 
-    // Announce presence to get other players
+    // Announce presence
     const wsService = WebSocketService.getInstance();
     wsService.send({
       type: MessageType.JOIN,
@@ -73,32 +120,35 @@ const Map = () => {
       },
     });
 
+    // Set up real-time location updates
+    const unsubscribeLocation = locationManager.subscribeToLocation(
+      (newLocation) => {
+        if (markerRefs.current['current']) {
+          markerRefs.current['current'].setLngLat([
+            newLocation.longitude,
+            newLocation.latitude,
+          ]);
+
+          if (isFollowingUser && mapRef.current) {
+            mapRef.current.easeTo({
+              center: [newLocation.longitude, newLocation.latitude],
+              duration: 500,
+            });
+          }
+        }
+      }
+    );
+
     return () => {
       Object.values(markerRefs.current).forEach((marker) => marker.remove());
       Object.values(geoObjectMarkerRefs.current).forEach((marker) =>
         marker.remove()
       );
+      unsubscribeLocation();
       map.remove();
       mapRef.current = null;
     };
   }, []);
-
-  // Update current player position
-  useEffect(() => {
-    if (!location || !markerRefs.current['current']) return;
-
-    markerRefs.current['current'].setLngLat([
-      location.longitude,
-      location.latitude,
-    ]);
-
-    if (mapRef.current) {
-      mapRef.current.easeTo({
-        center: [location.longitude, location.latitude],
-        duration: 1000,
-      });
-    }
-  }, [location]);
 
   // Handle other players updates
   useEffect(() => {
@@ -128,7 +178,7 @@ const Map = () => {
       }
     });
 
-    // Remove markers for players who left
+    // Clean up removed players
     Object.keys(markerRefs.current).forEach((markerId) => {
       if (
         markerId !== 'current' &&
@@ -144,8 +194,6 @@ const Map = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    console.log('GeoObjects:', geoObjects); // Debugging geoObjects data
-
     geoObjects.forEach((geoObject) => {
       const markerId = geoObject.id;
       const markerPosition = [
@@ -153,75 +201,41 @@ const Map = () => {
         geoObject.coordinate.latitude,
       ];
 
-      console.log(`Creating GeoObject: ${markerId}`, markerPosition);
-      const markerElement = document.createElement('div');
-      const root = createRoot(markerElement);
-      root.render(
-        <GeoObjectMarker
-          geoObject={geoObject}
-          onClick={() => {
-            if (mapRef.current) {
-              mapRef.current.flyTo({
-                center: markerPosition,
-                zoom: 18,
-                duration: 1000,
-              });
-            }
-          }}
-        />
-      );
+      if (!geoObjectMarkerRefs.current[markerId]) {
+        const markerElement = document.createElement('div');
+        const root = createRoot(markerElement);
+        root.render(
+          <GeoObjectMarker
+            geoObject={geoObject}
+            onClick={() => {
+              if (mapRef.current) {
+                setIsFollowingUser(false);
+                mapRef.current.flyTo({
+                  center: markerPosition,
+                  zoom: 18,
+                  duration: 1000,
+                });
+              }
+            }}
+          />
+        );
 
-      geoObjectMarkerRefs.current[markerId] = new mapboxgl.Marker({
-        element: markerElement,
-      })
-        .setLngLat(markerPosition)
-        .addTo(mapRef.current);
+        geoObjectMarkerRefs.current[markerId] = new mapboxgl.Marker({
+          element: markerElement,
+        })
+          .setLngLat(markerPosition)
+          .addTo(mapRef.current);
+      }
     });
 
-    // Clean-up markers for removed GeoObjects
+    // Clean up removed GeoObjects
     Object.keys(geoObjectMarkerRefs.current).forEach((markerId) => {
       if (!geoObjects.find((obj) => obj.id === markerId)) {
-        console.log(`Removing GeoObject: ${markerId}`);
         geoObjectMarkerRefs.current[markerId].remove();
         delete geoObjectMarkerRefs.current[markerId];
       }
     });
   }, [geoObjects]);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    const bounds = new mapboxgl.LngLatBounds();
-
-    // Include current player location
-    if (location) {
-      bounds.extend([location.longitude, location.latitude]);
-    }
-
-    // Include other players' locations
-    players.forEach((player) => {
-      if (player.location && player.playerId !== playerId) {
-        bounds.extend([player.location.longitude, player.location.latitude]);
-      }
-    });
-
-    // Include GeoObjects locations
-    geoObjects.forEach((geoObject) => {
-      bounds.extend([
-        geoObject.coordinate.longitude,
-        geoObject.coordinate.latitude,
-      ]);
-    });
-
-    // Fit map to the calculated bounds
-    if (!bounds.isEmpty()) {
-      mapRef.current.fitBounds(bounds, {
-        padding: 50, // Add padding around the edges of the viewport
-        maxZoom: 15, // Optional: Limit the zoom level
-        duration: 1000, // Animation duration in milliseconds
-      });
-    }
-  }, [location, players, geoObjects]);
 
   if (!location) {
     return (
