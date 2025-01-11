@@ -118,19 +118,15 @@ export const Game = React.memo(() => {
     [playerId, geoObjects, location, send, updateGameScore]
   );
 
-  // Memoize AR view to prevent unnecessary re-renders
-  const arView = useMemo(
-    () => (
-      <div className="absolute inset-0">
-        <ARView
-          drones={drones}
-          geoObjects={geoObjects}
-          onDroneShoot={handleDroneHit}
-          onGeoObjectHit={handleGeoObjectHit}
-        />
-      </div>
-    ),
-    [drones, geoObjects, handleDroneHit, handleGeoObjectHit]
+  const arView = (
+    <div className="absolute inset-0">
+      <ARView
+        drones={drones}
+        geoObjects={geoObjects}
+        onDroneShoot={handleDroneHit}
+        onGeoObjectHit={handleGeoObjectHit}
+      />
+    </div>
   );
 
   // Memoize status components

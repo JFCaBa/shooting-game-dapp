@@ -50,21 +50,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const gameMessageServiceRef = useRef<GameMessageService | null>(null);
   const gameStateServiceRef = useRef<GameStateService | null>(null);
 
-  // MARK: - Service Initialization
+  // MARK: - Service and Listener Initialization
   useEffect(() => {
     if (!state.playerId) return;
 
-    console.log('[GameContext] Initializing game services');
+    let isSubscribed = true;
+    console.log('[GameContext] Initializing services and listener');
 
-    // Stable reference to getLocation function
+    // Create services only once with stable references
     const getLocation = () => location;
 
-    // Create services only once
     if (!gameStateServiceRef.current) {
+      console.log('[GameContext] Creating GameStateService');
       gameStateServiceRef.current = new GameStateService(send, setState);
     }
 
     if (!gameMessageServiceRef.current) {
+      console.log('[GameContext] Creating GameMessageService');
       gameMessageServiceRef.current = new GameMessageService(
         send,
         setState,
@@ -77,26 +79,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }
 
-    // MARK: - Message Listener Setup
+    // Message handler with subscription check
     const handleMessage = (message: GameMessage) => {
-      console.log('[GameContext] Received message:', message);
+      if (!isSubscribed) return;
+      console.log('[GameContext] Processing message:', message.type);
       gameMessageServiceRef.current?.handleGameMessage(
         message,
         state.playerId!
       );
     };
 
+    console.log('[GameContext] Setting up message listener');
     const cleanup = addMessageListener(handleMessage);
 
     return () => {
-      console.log('[GameContext] Cleaning up message listener');
+      console.log('[GameContext] Cleaning up listener subscription');
+      isSubscribed = false;
       cleanup();
+      // Don't destroy services as they should persist
     };
-  }, [state.playerId, send, addMessageListener]); // Remove unnecessary dependencies
+  }, [state.playerId]); // Minimal dependencies to prevent recreations // Remove unnecessary dependencies
 
   useEffect(() => {
     console.log('[GameContext] WebSocket connection status:', isConnected);
-  }, [isConnected]);
+  }, [isConnected, addMessageListener]);
 
   // MARK: - Game Actions
   const shoot = useCallback(

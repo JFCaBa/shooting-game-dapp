@@ -3,7 +3,6 @@ import { GameMessage, MessageType } from '../types/game';
 type WebSocketCallback = (message: GameMessage) => void;
 
 export class WebSocketService {
-  // MARK: - Properties
   private static instance: WebSocketService;
   private socket: WebSocket | null = null;
   private isConnected = false;
@@ -16,13 +15,11 @@ export class WebSocketService {
   private callbacks: Set<WebSocketCallback> = new Set();
   private wsUrl: string;
 
-  // MARK: - Initialization
   private constructor() {
     this.wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8182';
     console.log('[WebSocket] Initialized with URL:', this.wsUrl);
   }
 
-  // MARK: - Singleton Access
   static getInstance(): WebSocketService {
     if (!WebSocketService.instance) {
       WebSocketService.instance = new WebSocketService();
@@ -30,7 +27,6 @@ export class WebSocketService {
     return WebSocketService.instance;
   }
 
-  // MARK: - Connection Management
   connect(): void {
     if (this.cleanup) {
       console.log('[WebSocket] Cleanup in progress, skipping connect');
@@ -51,7 +47,6 @@ export class WebSocketService {
     this.setupConnection();
   }
 
-  // MARK: - Connection Setup
   private setupConnection(): void {
     try {
       this.isConnecting = true;
@@ -67,7 +62,6 @@ export class WebSocketService {
     }
   }
 
-  // MARK: - Event Handlers
   private handleOpen(): void {
     console.log('[WebSocket] Connected successfully');
     this.isConnected = true;
@@ -81,13 +75,13 @@ export class WebSocketService {
       playerId: '',
       data: {},
     };
-    console.log('[WebSocket] Notifying connection with message:', message);
     this.notifyListeners(message);
   }
 
   private handleMessage(event: MessageEvent): void {
     try {
       if (event.data === 'pong') {
+        console.log('[WebSocket] Received pong');
         return;
       }
 
@@ -99,14 +93,10 @@ export class WebSocketService {
     }
   }
 
-  // MARK: - Listener Management
   private notifyListeners(message: GameMessage): void {
-    console.log(
-      `[WebSocket] Notifying ${this.callbacks.size} listeners for message type: ${message.type}`
-    );
+    console.log(`[WebSocket] Notifying ${this.callbacks.size} listeners`);
     this.callbacks.forEach((callback) => {
       try {
-        console.log('[WebSocket] Executing listener for message:', message);
         callback(message);
       } catch (error) {
         console.error('[WebSocket] Error in message listener:', error);
@@ -114,21 +104,6 @@ export class WebSocketService {
     });
   }
 
-  addMessageListener(callback: WebSocketCallback): void {
-    console.log(
-      '[WebSocket] Adding message listener, current count:',
-      this.callbacks.size
-    );
-    this.callbacks.add(callback);
-  }
-
-  removeMessageListener(callback: WebSocketCallback): void {
-    console.log('[WebSocket] Removing message listener');
-    this.callbacks.delete(callback);
-    console.log('[WebSocket] Remaining listeners:', this.callbacks.size);
-  }
-
-  // MARK: - Error Handling
   private handleError(event: Event): void {
     console.error('[WebSocket] Error occurred:', event);
     this.isConnected = false;
@@ -147,7 +122,6 @@ export class WebSocketService {
     this.handleDisconnect();
   }
 
-  // MARK: - Disconnect Management
   private handleDisconnect(): void {
     if (
       !this.isConnecting &&
@@ -165,7 +139,18 @@ export class WebSocketService {
     }
   }
 
-  // MARK: - Message Handling
+  disconnect(): void {
+    console.log('[WebSocket] Initiating disconnect');
+    this.cleanup = true;
+    this.stopPingTimer();
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
+    this.isConnected = false;
+    this.isConnecting = false;
+  }
+
   send(message: GameMessage): void {
     if (!this.isConnected || !this.socket) {
       console.warn('[WebSocket] Cannot send message - not connected:', message);
@@ -181,7 +166,57 @@ export class WebSocketService {
     }
   }
 
-  // MARK: - Status Management
+  addMessageListener(callback: WebSocketCallback): () => void {
+    this.callbacks.clear();
+
+    const callbackWrapper = (message: GameMessage) => {
+      console.log(
+        `[WebSocket] Processing message via listener, type: ${message.type}`
+      );
+      callback(message);
+    };
+
+    console.log(
+      '[WebSocket] Adding message listener, current count:',
+      this.callbacks.size
+    );
+    this.callbacks.add(callbackWrapper);
+    console.log('[WebSocket] New listener count:', this.callbacks.size);
+
+    // Return cleanup function that removes this specific wrapper
+    return () => {
+      console.log('[WebSocket] Removing specific message listener');
+      this.callbacks.delete(callbackWrapper);
+      console.log('[WebSocket] Remaining listeners:', this.callbacks.size);
+    };
+  }
+
+  removeMessageListener(callback: WebSocketCallback): void {
+    console.log('[WebSocket] Removing message listener');
+    this.callbacks.delete(callback);
+  }
+
+  private startPingTimer(): void {
+    this.stopPingTimer();
+    console.log('[WebSocket] Starting ping timer');
+    this.pingTimer = setInterval(() => this.sendPing(), 30000);
+  }
+
+  private stopPingTimer(): void {
+    if (this.pingTimer) {
+      console.log('[WebSocket] Stopping ping timer');
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+  }
+
+  private sendPing(): void {
+    if (this.socket && this.isConnected) {
+      console.log('[WebSocket] Sending ping');
+      this.socket.send('ping');
+    }
+  }
+
   getConnectionStatus(): boolean {
     return this.isConnected;
   }
@@ -191,37 +226,5 @@ export class WebSocketService {
     this.cleanup = false;
     this.reconnectAttempts = 0;
     this.connect();
-  }
-
-  // MARK: - Cleanup
-  disconnect(): void {
-    console.log('[WebSocket] Initiating disconnect');
-    this.cleanup = true;
-    this.stopPingTimer();
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
-    this.isConnected = false;
-    this.isConnecting = false;
-  }
-
-  // MARK: - Keep Alive
-  private startPingTimer(): void {
-    this.stopPingTimer();
-    this.pingTimer = setInterval(() => this.sendPing(), 30000);
-  }
-
-  private stopPingTimer(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
-  }
-
-  private sendPing(): void {
-    if (this.socket && this.isConnected) {
-      this.socket.send('ping');
-    }
   }
 }
