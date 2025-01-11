@@ -7,7 +7,6 @@ export interface GameState {
   drones: DroneData[];
   gameScore: GameScore;
   playerId: string | null;
-  isAlive: boolean;
   currentLives: number;
   maxLives: number;
   currentAmmo: number;
@@ -39,7 +38,6 @@ export const INITIAL_STATE: GameState = {
   drones: [],
   gameScore: { hits: 0, kills: 0 },
   playerId: null,
-  isAlive: true,
   currentLives: 0,
   maxLives: 10,
   currentAmmo: 0,

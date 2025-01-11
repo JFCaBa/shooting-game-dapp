@@ -1,25 +1,30 @@
 import { GameState } from '../types/gameContext';
-import { WebSocketService } from './WebSocketService';
 import {
   GameMessage,
   MessageType,
   LocationData,
   ShootData,
 } from '../types/game';
-import { RELOAD_TIME, RESPAWN_TIME } from '../types/gameContext';
+import { RELOAD_TIME } from '../types/gameContext';
+
+// MARK: - Type Definitions
+type SendMessageFn = (message: GameMessage) => void;
 
 export class GameStateService {
+  // MARK: - Properties
   private isShooting: boolean = false;
-  private wsInstance: WebSocketService;
+  private sendMessage: SendMessageFn;
   private setState: (
     state: GameState | ((prevState: GameState) => GameState)
   ) => void;
 
+  // MARK: - Constructor
   constructor(
-    wsInstance: WebSocketService,
+    sendMessage: SendMessageFn,
     setState: (state: GameState | ((prevState: GameState) => GameState)) => void
   ) {
-    this.wsInstance = wsInstance;
+    console.log('[GameStateService] Initializing');
+    this.sendMessage = sendMessage;
     this.setState = setState;
   }
 
@@ -29,7 +34,7 @@ export class GameStateService {
       type: MessageType.RELOAD,
       playerId: playerId,
     };
-    this.wsInstance.send(reloadMessage);
+    this.sendMessage(reloadMessage);
   }
 
   // MARK: - sendRecoverRequest
@@ -38,7 +43,7 @@ export class GameStateService {
       type: MessageType.RECOVER,
       playerId: playerId,
     };
-    this.wsInstance.send(recoverMessage);
+    this.sendMessage(recoverMessage);
   }
 
   // MARK: - performReload
@@ -61,7 +66,7 @@ export class GameStateService {
       if (prev.isRecovering) {
         return prev;
       }
-      return { ...prev, isRecovering: true, isAlive: false };
+      return { ...prev, isRecovering: true };
     });
 
     setTimeout(() => {
@@ -116,6 +121,8 @@ export class GameStateService {
       return {
         ...prev,
         showAdModal: null,
+        isRecovering: false,
+        isReloading: false,
       };
     });
   }
@@ -129,7 +136,7 @@ export class GameStateService {
     this.setState((prev) => {
       console.log('Shoot function');
 
-      if (!prev.isAlive || !playerId) {
+      if (prev.isRecovering || !playerId) {
         console.log('❌ Shoot blocked - not alive or no player ID');
         return prev;
       }
@@ -161,7 +168,7 @@ export class GameStateService {
       };
 
       // Send shoot message
-      this.wsInstance.send({
+      this.sendMessage({
         type: MessageType.SHOOT,
         playerId: playerId,
         data: shootData,
@@ -189,14 +196,14 @@ export class GameStateService {
         hitPlayerId: targetPlayerId,
       },
     };
-    this.wsInstance.send(killMessage);
+    this.sendMessage(killMessage);
   }
 
   // MARK: - handleHit
 
   public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
-      if (!prev.isAlive || prev.isRecovering) return prev;
+      if (prev.isRecovering) return prev;
 
       const newLives = Math.max(
         0,

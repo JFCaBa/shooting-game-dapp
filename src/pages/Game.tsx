@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
+import { useWebSocketService } from '../hooks/useWebSocketService';
 import Camera from '../components/game/Camera';
 import ARView from '../components/ar/ARView';
 import Crosshair from '../components/game/Crosshair';
@@ -8,7 +9,6 @@ import StatusBar from '../components/game/StatusBar';
 import GameStatus from '../components/game/GameStatus';
 import RewardAdModal from '../components/modals/RewardAdModal';
 import HitEffect from '../components/game/HitEffect';
-import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 
 export const Game = React.memo(() => {
@@ -31,35 +31,37 @@ export const Game = React.memo(() => {
   } = useGameContext();
   const { location } = useLocationContext();
 
+  // Use the improved WebSocket hook
+  const { isConnected, send } = useWebSocketService(playerId);
+
   // Memoize other players calculation
   const otherPlayers = useMemo(() => {
     return players.filter((player) => player.playerId !== playerId);
   }, [players, playerId]);
-
-  // Memoize WebSocket service instance
-  const wsService = useMemo(() => WebSocketService.getInstance(), []);
 
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
       if (playerId) {
         // Send remove drones message to server
-        wsService.send({
+        send({
           type: MessageType.REMOVE_DRONES,
           playerId: playerId,
           data: {},
         });
       }
     };
-  }, [playerId, wsService]);
+  }, [playerId, send]);
 
   // Memoize handlers
   const handleDroneHit = useCallback(
     (droneId: string) => {
-      console.log('Drone hit:', droneId);
-      wsService.send({
+      if (!playerId) return;
+
+      console.log('[Game] Drone hit:', droneId);
+      send({
         type: MessageType.SHOOT_DRONE,
-        playerId: playerId!,
+        playerId: playerId,
         data: {
           droneId: droneId,
           position: { x: 0, y: 0, z: 0 },
@@ -72,7 +74,7 @@ export const Game = React.memo(() => {
         droneId: droneId,
       });
     },
-    [playerId, updateGameScore, wsService]
+    [playerId, send, updateGameScore]
   );
 
   const handleGeoObjectHit = useCallback(
@@ -82,7 +84,7 @@ export const Game = React.memo(() => {
       const targetObject = geoObjects?.find((obj) => obj.id === geoObjectId);
       if (!targetObject) return;
 
-      wsService.send({
+      send({
         type: MessageType.GEO_OBJECT_HIT,
         playerId: playerId,
         data: {
@@ -113,12 +115,12 @@ export const Game = React.memo(() => {
         );
       }
     },
-    [playerId, geoObjects, location, wsService, updateGameScore]
+    [playerId, geoObjects, location, send, updateGameScore]
   );
 
   // Memoize AR view to prevent unnecessary re-renders
-  const arView = useMemo(() => {
-    return (
+  const arView = useMemo(
+    () => (
       <div className="absolute inset-0">
         <ARView
           drones={drones}
@@ -127,8 +129,9 @@ export const Game = React.memo(() => {
           onGeoObjectHit={handleGeoObjectHit}
         />
       </div>
-    );
-  }, [drones, geoObjects, handleDroneHit, handleGeoObjectHit]);
+    ),
+    [drones, geoObjects, handleDroneHit, handleGeoObjectHit]
+  );
 
   // Memoize status components
   const statusBar = useMemo(
@@ -150,10 +153,10 @@ export const Game = React.memo(() => {
         hits={gameScore.hits}
         kills={gameScore.kills}
         isOnline={navigator.onLine}
-        isWebSocketConnected={wsService.isConnected}
+        isWebSocketConnected={isConnected}
       />
     ),
-    [drones.length, gameScore.hits, gameScore.kills, wsService.isConnected]
+    [drones.length, gameScore.hits, gameScore.kills, isConnected]
   );
 
   // Memoize HitEffect to prevent unnecessary re-renders
@@ -204,11 +207,11 @@ export const Game = React.memo(() => {
           <RewardAdModal
             type={showAdModal}
             onClose={() => {
-              console.log('Modal close requested');
+              console.log('[Game] Modal close requested');
               closeAdModal();
             }}
             onReward={() => {
-              console.log('Reward requested');
+              console.log('[Game] Reward requested');
               handleAdReward();
             }}
           />

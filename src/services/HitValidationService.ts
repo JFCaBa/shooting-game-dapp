@@ -2,7 +2,6 @@
 // Validates hit detection and damage calculations
 
 import { LocationData } from '../types/game';
-import { LocationService } from './LocationService';
 import { calculateDistance, calculateBearing, toRadians } from '../utils/maths';
 
 interface HitValidation {
@@ -13,23 +12,9 @@ interface HitValidation {
 }
 
 export class HitValidationService {
-  private static instance: HitValidationService;
-  private locationService: LocationService;
-
   private readonly MAX_RANGE = 500; // meters
   private readonly MAX_ANGLE_ERROR = 30; // degrees
   private readonly BASE_DAMAGE = 1;
-
-  private constructor() {
-    this.locationService = LocationService.getInstance();
-  }
-
-  static getInstance(): HitValidationService {
-    if (!HitValidationService.instance) {
-      HitValidationService.instance = new HitValidationService();
-    }
-    return HitValidationService.instance;
-  }
 
   validateHit(
     shooter: LocationData,
@@ -44,13 +29,6 @@ export class HitValidationService {
         deviation: 0,
       };
     }
-
-    return {
-      isValid: true,
-      damage: 0,
-      distance: 0,
-      deviation: 0,
-    };
 
     const distance = calculateDistance(shooter, target);
 
