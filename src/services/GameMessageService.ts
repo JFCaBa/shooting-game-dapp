@@ -179,7 +179,6 @@ export class GameMessageService {
     message: GameMessage,
     currentPlayerId: string
   ): Promise<void> {
-    console.log('Message at GAmeMessageService:', message);
     // MARK: WEBSOCKET_CONNECTED
     if (message.type === MessageType.WEBSOCKET_CONNECTED && !this.hasJoined) {
       try {

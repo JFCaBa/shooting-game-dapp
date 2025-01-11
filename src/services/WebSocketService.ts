@@ -88,13 +88,11 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       if (event.data === 'pong') {
-        console.log('[WebSocket] Received pong');
         return;
       }
 
       console.log('[WebSocket] Received message:', event.data);
       const message = JSON.parse(event.data) as GameMessage;
-      console.log(`[WebSocket] Parsed message of type: ${message.type}`);
       this.notifyListeners(message);
     } catch (error) {
       console.error('[WebSocket] Message parsing error:', error);
@@ -122,20 +120,6 @@ export class WebSocketService {
       this.callbacks.size
     );
     this.callbacks.add(callback);
-    console.log('[WebSocket] New listener count:', this.callbacks.size);
-
-    // Test the listener immediately with a test message
-    try {
-      console.log('[WebSocket] Testing new listener...');
-      callback({
-        type: MessageType.WEBSOCKET_CONNECTED,
-        playerId: '',
-        data: {},
-      });
-      console.log('[WebSocket] Listener test successful');
-    } catch (error) {
-      console.error('[WebSocket] Listener test failed:', error);
-    }
   }
 
   removeMessageListener(callback: WebSocketCallback): void {
@@ -225,13 +209,11 @@ export class WebSocketService {
   // MARK: - Keep Alive
   private startPingTimer(): void {
     this.stopPingTimer();
-    console.log('[WebSocket] Starting ping timer');
     this.pingTimer = setInterval(() => this.sendPing(), 30000);
   }
 
   private stopPingTimer(): void {
     if (this.pingTimer) {
-      console.log('[WebSocket] Stopping ping timer');
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
@@ -239,7 +221,6 @@ export class WebSocketService {
 
   private sendPing(): void {
     if (this.socket && this.isConnected) {
-      console.log('[WebSocket] Sending ping');
       this.socket.send('ping');
     }
   }
