@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRONE_SCALE, DroneData, convertToVector3 } from '../../types/drone';
+import { DRONE_SCALE, DroneData, convertToVector3 } from '../../../types/drone';
 
 interface ARDroneModelProps {
   drone: DroneData;

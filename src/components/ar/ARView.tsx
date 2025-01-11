@@ -6,8 +6,8 @@ import { GeoObject } from '../../types/game';
 import { ARSceneManager } from './scene/ARSceneManager';
 import { HitDetector } from './hit-detection/HitDetector';
 import { SmokeEffect } from './effects/SmokeEffect';
-import ARDroneModel from './ARDroneModel';
-import GeoObjectNode from './GeoObjectNode';
+import ARDroneModel from './models/ARDroneModel';
+import GeoObjectNode from './models/GeoObjectNode';
 import Camera from '../game/Camera';
 import { calculateDistance } from '../../utils/maths';
 
