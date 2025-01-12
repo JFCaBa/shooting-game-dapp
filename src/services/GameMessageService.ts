@@ -82,6 +82,8 @@ export class GameMessageService {
     shootData: ShootData,
     currentPlayerId: string
   ): Promise<void> {
+    if (this.state.isRecovering) return;
+
     const currentLocation = this.locationManager.getCurrentLocation();
 
     if (!shootData || !shootData.location || !currentLocation) {
