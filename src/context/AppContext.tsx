@@ -23,10 +23,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     // Initialize WebSocket service at app level
     webSocketPersistentService.initialize(playerId);
-
-    // return () => {
-    //   webSocketPersistentService.disconnect();
-    // };
   }, [playerId]);
 
   return (

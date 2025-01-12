@@ -22,7 +22,7 @@ import NavigationMenu from './components/navigation/NavigationMenu';
 import { ComingSoon } from './components/modals/ComingSoon';
 import { Screen } from './types/navigation';
 import DevicePermissionsHandler from './components/permissions/DevicePermissionsHandler';
-import { adManager } from './services/AdManager';
+import { adService } from './services/AdService';
 import { WalletProvider } from './context/WalletContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { AppProvider } from './context/AppContext';
@@ -150,14 +150,14 @@ const GameLayout = () => {
 // Main App Component
 const App = () => {
   useEffect(() => {
-    // Initialize AdManager when app starts
+    // Initialize AdService when app starts
     try {
       if (process.env.NODE_ENV === 'production') {
-        console.log('Initializing AdManager in production mode');
-        adManager.isSupported();
+        console.log('Initializing AdService in production mode');
+        adService.isSupported();
       }
     } catch (error) {
-      console.error('Error initializing AdManager:', error);
+      console.error('Error initializing AdService:', error);
     }
   }, []);
 

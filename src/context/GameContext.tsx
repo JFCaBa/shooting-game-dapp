@@ -7,7 +7,12 @@ import React, {
   useCallback,
   useEffect,
 } from 'react';
-import { GameMessage, GeoObject, MessageType } from '../types/game';
+import {
+  GameMessage,
+  GeoObject,
+  LocationData,
+  MessageType,
+} from '../types/game';
 import { generateTemporaryId } from '../utils/uuid';
 import { GameMessageService } from '../services/GameMessageService';
 import { GameStateService } from '../services/GameStateService';
@@ -41,7 +46,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   const gameMessageServiceRef = useRef<GameMessageService | null>(null);
   const gameStateServiceRef = useRef<GameStateService | null>(null);
 
-  // Initialize services
+  // MARK: - Initialize services
   useEffect(() => {
     if (!state.playerId) return;
 
@@ -70,7 +75,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [state.playerId]); // Only re-initialize when playerId changes
 
-  // Handle WebSocket messages
+  // MARK: - Handle WebSocket messages
   useEffect(() => {
     if (!state.playerId || !gameMessageServiceRef.current) return;
 
@@ -96,7 +101,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [state.playerId, hasJoined, addMessageListener]);
 
-  // Reset join state when connection is lost
+  // MARK: - Reset join state when connection is lost
   useEffect(() => {
     if (!isConnected) {
       console.log('[GameContext] Connection lost, resetting join state');
@@ -104,11 +109,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [isConnected]);
 
-  // Game actions
+  // MARK: - Game actions
+
   const shoot = useCallback(
-    (location, heading) => {
+    (location: LocationData, heading: number) => {
+      if (!state.playerId) {
+        console.error('[GameContext] playerId is nil');
+        return;
+      }
       if (gameStateServiceRef.current) {
-        gameStateServiceRef.current.shoot(state.playerId!, location, heading);
+        if (!state.playerId) return;
+
+        gameStateServiceRef.current.shoot(state.playerId, location, heading);
       }
     },
     [state.playerId]
@@ -120,7 +132,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [state.playerId]);
 
-  const updateGameScore = useCallback((action) => {
+  const updateGameScore = useCallback((action: GameScoreAction) => {
     if (gameStateServiceRef.current) {
       gameStateServiceRef.current.updateGameScore(action);
     }
