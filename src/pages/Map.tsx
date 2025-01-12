@@ -6,7 +6,6 @@ import { useGameContext } from '../context/GameContext';
 import { createRoot } from 'react-dom/client';
 import PlayerMarker from '../components/map/PlayerMarker';
 import GeoObjectMarker from '../components/map/GeoObjectMarker';
-import { WebSocketService } from '../services/WebSocketService';
 import { MessageType } from '../types/game';
 import { LocationStateManager } from '../services/LocationStateManager';
 
@@ -40,25 +39,24 @@ const Map = () => {
       zoom: 15,
     });
 
-    // Add navigation control
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Add follow mode toggle button
+    // Create custom follow button control
     const followButton = document.createElement('button');
     followButton.className = 'mapboxgl-ctrl-icon follow-button';
     followButton.style.cssText = `
-      width: 29px;
-      height: 29px;
+      width: 20px;
+      height: 20px;
       background: #fff;
       border: none;
       border-radius: 4px;
-      padding: 5px;
+      padding: 2px;
       box-shadow: 0 0 0 2px rgba(0,0,0,.1);
       cursor: pointer;
       margin: 5px;
     `;
     followButton.innerHTML = `
-      <svg viewBox="0 0 24 24" style="width: 100%; height: 100%;">
+      <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;">
         <path fill="${isFollowingUser ? '#4CAF50' : '#666'}" 
               d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
       </svg>
@@ -67,60 +65,50 @@ const Map = () => {
     const customControl = document.createElement('div');
     customControl.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
     customControl.appendChild(followButton);
+
     map.addControl(
-      { onAdd: () => customControl, onRemove: () => {} },
+      {
+        onAdd: () => customControl,
+        onRemove: () => {},
+      },
       'top-right'
     );
 
     followButton.onclick = () => {
-      setIsFollowingUser(!isFollowingUser);
-      if (!isFollowingUser && location) {
-        map.easeTo({
+      if (location && mapRef.current) {
+        mapRef.current.easeTo({
           center: [location.longitude, location.latitude],
-          duration: 1000,
+          duration: 500,
         });
       }
     };
 
-    // Handle map interaction to disable follow mode
     map.on('dragstart', () => setIsFollowingUser(false));
-
     mapRef.current = map;
 
     // Add current player marker
-    const markerElement = document.createElement('div');
-    const root = createRoot(markerElement);
-    root.render(
-      <PlayerMarker
-        player={{
-          playerId: playerId || 'current',
-          location,
-          heading: 0,
-        }}
-        isCurrentPlayer={true}
-      />
-    );
+    if (location) {
+      const markerElement = document.createElement('div');
+      const root = createRoot(markerElement);
+      root.render(
+        <PlayerMarker
+          player={{
+            playerId: playerId || 'current',
+            location,
+            heading: 0,
+          }}
+          isCurrentPlayer={true}
+        />
+      );
 
-    markerRefs.current['current'] = new mapboxgl.Marker({
-      element: markerElement,
-    })
-      .setLngLat([location.longitude, location.latitude])
-      .addTo(map);
+      markerRefs.current['current'] = new mapboxgl.Marker({
+        element: markerElement,
+      })
+        .setLngLat([location.longitude, location.latitude])
+        .addTo(map);
+    }
 
-    // Announce presence
-    const wsService = WebSocketService.getInstance();
-    wsService.send({
-      type: MessageType.JOIN,
-      playerId: playerId!,
-      data: {
-        location,
-        playerId,
-        kind: 'player',
-        heading: 0,
-      },
-    });
-
-    // Set up real-time location updates
+    // Set up location updates
     const unsubscribeLocation = locationManager.subscribeToLocation(
       (newLocation) => {
         if (markerRefs.current['current']) {
@@ -128,13 +116,6 @@ const Map = () => {
             newLocation.longitude,
             newLocation.latitude,
           ]);
-
-          if (isFollowingUser && mapRef.current) {
-            mapRef.current.easeTo({
-              center: [newLocation.longitude, newLocation.latitude],
-              duration: 500,
-            });
-          }
         }
       }
     );
@@ -150,7 +131,7 @@ const Map = () => {
     };
   }, []);
 
-  // Handle other players updates
+  // Update other players
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -178,7 +159,7 @@ const Map = () => {
       }
     });
 
-    // Clean up removed players
+    // Cleanup removed players
     Object.keys(markerRefs.current).forEach((markerId) => {
       if (
         markerId !== 'current' &&
@@ -190,10 +171,17 @@ const Map = () => {
     });
   }, [players]);
 
-  // Handle GeoObjects updates
+  // Update GeoObjects
   useEffect(() => {
     if (!mapRef.current) return;
 
+    // Clear existing markers first
+    Object.values(geoObjectMarkerRefs.current).forEach((marker) =>
+      marker.remove()
+    );
+    geoObjectMarkerRefs.current = {};
+
+    // Add new markers
     geoObjects.forEach((geoObject) => {
       const markerId = geoObject.id;
       const markerPosition = [
@@ -201,39 +189,29 @@ const Map = () => {
         geoObject.coordinate.latitude,
       ];
 
-      if (!geoObjectMarkerRefs.current[markerId]) {
-        const markerElement = document.createElement('div');
-        const root = createRoot(markerElement);
-        root.render(
-          <GeoObjectMarker
-            geoObject={geoObject}
-            onClick={() => {
-              if (mapRef.current) {
-                setIsFollowingUser(false);
-                mapRef.current.flyTo({
-                  center: markerPosition,
-                  zoom: 18,
-                  duration: 1000,
-                });
-              }
-            }}
-          />
-        );
+      const markerElement = document.createElement('div');
+      const root = createRoot(markerElement);
+      root.render(
+        <GeoObjectMarker
+          geoObject={geoObject}
+          onClick={() => {
+            if (mapRef.current) {
+              setIsFollowingUser(false);
+              mapRef.current.flyTo({
+                center: markerPosition,
+                zoom: 18,
+                duration: 1000,
+              });
+            }
+          }}
+        />
+      );
 
-        geoObjectMarkerRefs.current[markerId] = new mapboxgl.Marker({
-          element: markerElement,
-        })
-          .setLngLat(markerPosition)
-          .addTo(mapRef.current);
-      }
-    });
-
-    // Clean up removed GeoObjects
-    Object.keys(geoObjectMarkerRefs.current).forEach((markerId) => {
-      if (!geoObjects.find((obj) => obj.id === markerId)) {
-        geoObjectMarkerRefs.current[markerId].remove();
-        delete geoObjectMarkerRefs.current[markerId];
-      }
+      geoObjectMarkerRefs.current[markerId] = new mapboxgl.Marker({
+        element: markerElement,
+      })
+        .setLngLat(markerPosition)
+        .addTo(mapRef.current);
     });
   }, [geoObjects]);
 

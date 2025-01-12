@@ -10,6 +10,7 @@ import ARDroneModel from './models/ARDroneModel';
 import GeoObjectNode from './models/GeoObjectNode';
 import Camera from '../game/Camera';
 import { calculateDistance } from '../../utils/maths';
+import { SoundType } from '../../types/sound';
 
 interface ARViewProps {
   drones?: DroneData[];
@@ -91,6 +92,7 @@ const ARView: React.FC<ARViewProps> = ({
         if (onDroneShoot) {
           onDroneShoot(droneId);
           createSmokeEffect(hitPosition);
+          playSound(SoundType.explosion);
         }
       },
       (geoObjectId: string, hitPosition: THREE.Vector3) => {
@@ -101,6 +103,33 @@ const ARView: React.FC<ARViewProps> = ({
       }
     );
   }, [onDroneShoot, onGeoObjectHit, createSmokeEffect]);
+
+  // MARK: - preloadSounds
+
+  const preloadedSounds = useMemo(() => {
+    const sounds = Object.values(SoundType).reduce((acc, soundFile) => {
+      const audio = new Audio(`/sounds/${soundFile}`);
+      acc[soundFile] = audio;
+      return acc;
+    }, {} as Record<string, HTMLAudioElement>);
+
+    return sounds;
+  }, []);
+
+  // MARK: - Play sound
+
+  const playSound = useCallback(
+    (sound: SoundType) => {
+      const audio = preloadedSounds[sound];
+      if (audio) {
+        audio.currentTime = 0; // Reset playback position
+        audio.play().catch((error) => {
+          console.error(`Failed to play sound: ${sound}`, error);
+        });
+      }
+    },
+    [preloadedSounds]
+  );
 
   // MARK: - Initialize scene
   useEffect(() => {

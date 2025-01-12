@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { useGameContext } from '../context/GameContext';
 import { useLocationContext } from '../context/LocationContext';
-import { useWebSocketService } from '../hooks/useWebSocketService';
+import { usePersistentWebSocket } from '../hooks/usePersistentWebSocket';
 import Camera from '../components/game/Camera';
 import ARView from '../components/ar/ARView';
 import Crosshair from '../components/game/Crosshair';
@@ -32,7 +32,7 @@ export const Game = React.memo(() => {
   const { location } = useLocationContext();
 
   // Use the improved WebSocket hook
-  const { isConnected, send } = useWebSocketService(playerId);
+  const { isConnected, send } = usePersistentWebSocket(playerId);
 
   // Memoize other players calculation
   const otherPlayers = useMemo(() => {

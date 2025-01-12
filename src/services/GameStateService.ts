@@ -7,49 +7,43 @@ import {
 } from '../types/game';
 import { RELOAD_TIME } from '../types/gameContext';
 
-// MARK: - Type Definitions
 type SendMessageFn = (message: GameMessage) => void;
+type SetStateFn = (
+  state: GameState | ((prevState: GameState) => GameState)
+) => void;
 
 export class GameStateService {
-  // MARK: - Properties
+  private readonly sendMessage: SendMessageFn;
+  private readonly setState: SetStateFn;
   private isShooting: boolean = false;
-  private sendMessage: SendMessageFn;
-  private setState: (
-    state: GameState | ((prevState: GameState) => GameState)
-  ) => void;
 
-  // MARK: - Constructor
-  constructor(
-    sendMessage: SendMessageFn,
-    setState: (state: GameState | ((prevState: GameState) => GameState)) => void
-  ) {
+  constructor(sendMessage: SendMessageFn, setState: SetStateFn) {
     console.log('[GameStateService] Initializing');
     this.sendMessage = sendMessage;
     this.setState = setState;
   }
 
-  // MARK: - sendReloadRequest
   public sendReloadRequest(playerId: string): void {
-    const reloadMessage: GameMessage = {
+    console.log('[GameStateService] Sending reload request');
+    this.sendMessage({
       type: MessageType.RELOAD,
       playerId: playerId,
-    };
-    this.sendMessage(reloadMessage);
+    });
   }
 
-  // MARK: - sendRecoverRequest
   public sendRecoverRequest(playerId: string): void {
-    const recoverMessage: GameMessage = {
+    console.log('[GameStateService] Sending recover request');
+    this.sendMessage({
       type: MessageType.RECOVER,
       playerId: playerId,
-    };
-    this.sendMessage(recoverMessage);
+    });
   }
 
-  // MARK: - performReload
   public performReload(playerId: string): void {
+    console.log('[GameStateService] Starting reload process');
     this.setState((prev) => {
       if (prev.isReloading) {
+        console.log('[GameStateService] Already reloading, skipping');
         return prev;
       }
       return { ...prev, isReloading: true };
@@ -60,10 +54,11 @@ export class GameStateService {
     }, RELOAD_TIME);
   }
 
-  // MARK: - performRecover
   public performRecover(playerId: string): void {
+    console.log('[GameStateService] Starting recover process');
     this.setState((prev) => {
       if (prev.isRecovering) {
+        console.log('[GameStateService] Already recovering, skipping');
         return prev;
       }
       return { ...prev, isRecovering: true };
@@ -74,31 +69,24 @@ export class GameStateService {
     }, RELOAD_TIME);
   }
 
-  // MARK: - handleAdReward
   public handleAdReward(playerId: string): void {
+    console.log('[GameStateService] Processing ad reward');
     this.setState((prev) => {
       switch (prev.showAdModal) {
         case 'ammo':
           this.performReload(playerId);
-          return {
-            ...prev,
-            showAdModal: null,
-          };
-
+          return { ...prev, showAdModal: null };
         case 'lives':
           this.performRecover(playerId);
-          return {
-            ...prev,
-            showAdModal: null,
-          };
+          return { ...prev, showAdModal: null };
         default:
           return prev;
       }
     });
   }
 
-  // MARK: - closeAdModal
   public closeAdModal(playerId: string): void {
+    console.log('[GameStateService] Closing ad modal');
     this.setState((prev) => {
       if (prev.showAdModal === 'ammo') {
         this.performReload(playerId);
@@ -127,28 +115,29 @@ export class GameStateService {
     });
   }
 
-  // MARK: - shoot
   public shoot(
     playerId: string,
     location: LocationData,
     heading: number
   ): void {
     this.setState((prev) => {
-      console.log('Shoot function');
+      console.log('[GameStateService] Processing shoot action');
 
       if (prev.isRecovering || !playerId) {
-        console.log('❌ Shoot blocked - not alive or no player ID');
+        console.log(
+          '[GameStateService] Shoot blocked - not alive or no player ID'
+        );
         return prev;
       }
 
       if (prev.isReloading) {
-        console.log('⏳ Blocked - currently reloading');
+        console.log('[GameStateService] Blocked - currently reloading');
         return prev;
       }
 
       const newAmmo = Math.max(0, prev.currentAmmo - 1);
       if (newAmmo === 0) {
-        console.log('🚫 No ammo left, showing ad modal');
+        console.log('[GameStateService] No ammo left, showing ad modal');
         return {
           ...prev,
           currentAmmo: newAmmo,
@@ -156,7 +145,11 @@ export class GameStateService {
         };
       }
 
-      if (this.isShooting) return { ...prev };
+      if (this.isShooting) {
+        console.log('[GameStateService] Already shooting, skipping');
+        return prev;
+      }
+
       this.isShooting = true;
 
       const shootData: ShootData = {
@@ -167,7 +160,6 @@ export class GameStateService {
         distance: 0,
       };
 
-      // Send shoot message
       this.sendMessage({
         type: MessageType.SHOOT,
         playerId: playerId,
@@ -185,39 +177,35 @@ export class GameStateService {
     });
   }
 
-  // MARK: - sendKillMessage
-
   private sendKillMessage(targetPlayerId: string, playerId: string): void {
-    const killMessage: GameMessage = {
+    console.log('[GameStateService] Sending kill message');
+    this.sendMessage({
       type: MessageType.KILL,
       playerId: targetPlayerId,
       senderId: playerId,
       data: {
         hitPlayerId: targetPlayerId,
       },
-    };
-    this.sendMessage(killMessage);
+    });
   }
-
-  // MARK: - handleHit
 
   public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
-      if (prev.isRecovering) return prev;
+      if (prev.isRecovering) {
+        console.log('[GameStateService] Hit blocked - currently recovering');
+        return prev;
+      }
 
       const newLives = Math.max(
         0,
         prev.currentLives - Math.max(Math.round(damage), 1)
       );
 
-      // Dispatch the hit event
       document.dispatchEvent(new CustomEvent('playerHit'));
 
       if (newLives === 0 && shooterPlayerId && prev.playerId) {
-        // Send KILL message when lives reach 0
         this.sendKillMessage(prev.playerId, shooterPlayerId);
-
-        console.log('❤️‍🩹 No lives left, showing ad modal');
+        console.log('[GameStateService] Player killed, showing ad modal');
         return {
           ...prev,
           currentLives: newLives,
@@ -233,24 +221,11 @@ export class GameStateService {
     });
   }
 
-  // MARK: - resetDroneTimer
-  public resetDroneTimer(): void {
-    this.setState((prev) => {
-      if (prev.droneTimer) {
-        clearInterval(prev.droneTimer);
-      }
-      const timer = setInterval(() => {
-        // Implement drone timeout logic if needed
-      }, 30000);
-      return { ...prev, droneTimer: timer };
-    });
-  }
-
-  // MARK: - updateGameScore
   public updateGameScore(action: GameScoreAction): void {
+    console.log('[GameStateService] Updating game score:', action.type);
     this.setState((prev) => {
       switch (action.type) {
-        case 'DRONE_HIT':
+        case 'DRONE_HIT': {
           const updatedDrones = prev.drones.filter(
             (drone) => drone.droneId !== action.droneId
           );
@@ -262,6 +237,7 @@ export class GameStateService {
               hits: prev.gameScore.hits + 1,
             },
           };
+        }
 
         case 'HIT':
           return {
