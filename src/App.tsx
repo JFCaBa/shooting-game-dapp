@@ -25,6 +25,7 @@ import DevicePermissionsHandler from './components/permissions/DevicePermissions
 import { adManager } from './services/AdManager';
 import { WalletProvider } from './context/WalletContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { AppProvider } from './context/AppContext';
 
 interface AuthBannerProps {
   onClose: () => void;
@@ -162,24 +163,26 @@ const App = () => {
 
   return (
     <Router>
-      <WalletProvider>
-        <LocationProvider>
-          <NotificationProvider>
-            <GameProvider>
-              <AchievementsProvider>
-                <DevicePermissionsHandler>
-                  <Routes>
-                    <Route path="/create-user" element={<CreateUser />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/*" element={<GameLayout />} />
-                  </Routes>
-                </DevicePermissionsHandler>
-              </AchievementsProvider>
-            </GameProvider>
-          </NotificationProvider>
-        </LocationProvider>
-      </WalletProvider>
+      <AppProvider>
+        <WalletProvider>
+          <LocationProvider>
+            <NotificationProvider>
+              <GameProvider>
+                <AchievementsProvider>
+                  <DevicePermissionsHandler>
+                    <Routes>
+                      <Route path="/create-user" element={<CreateUser />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/*" element={<GameLayout />} />
+                    </Routes>
+                  </DevicePermissionsHandler>
+                </AchievementsProvider>
+              </GameProvider>
+            </NotificationProvider>
+          </LocationProvider>
+        </WalletProvider>
+      </AppProvider>
     </Router>
   );
 };

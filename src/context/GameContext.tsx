@@ -1,4 +1,3 @@
-// MARK: - Imports
 import { useLocationContext } from './LocationContext';
 import React, {
   createContext,
@@ -8,7 +7,7 @@ import React, {
   useCallback,
   useEffect,
 } from 'react';
-import { GameMessage, GeoObject } from '../types/game';
+import { GameMessage, GeoObject, MessageType } from '../types/game';
 import { generateTemporaryId } from '../utils/uuid';
 import { GameMessageService } from '../services/GameMessageService';
 import { GameStateService } from '../services/GameStateService';
@@ -18,128 +17,141 @@ import {
   GameState,
   INITIAL_STATE,
 } from '../types/gameContext';
-import { useWebSocketService } from '../hooks/useWebSocketService';
+import { usePersistentWebSocket } from '../hooks/usePersistentWebSocket';
 
-// MARK: - Context Creation
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-// MARK: - GameProvider Component
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // MARK: - State Management
-  const [state, setState] = useState<GameState>(INITIAL_STATE);
+  const [state, setState] = useState<GameState>(() => {
+    const playerId = generateTemporaryId();
+    return { ...INITIAL_STATE, playerId };
+  });
+
   const [geoObjects, setGeoObjects] = useState<GeoObject[]>([]);
+  const [hasJoined, setHasJoined] = useState(false);
   const { location } = useLocationContext();
   const locationManager = LocationStateManager.getInstance();
 
-  // Initialize playerId if not exists
-  useState(() => {
-    if (!state.playerId) {
-      const playerId = generateTemporaryId();
-      setState((prev) => ({ ...prev, playerId }));
-    }
-  });
-
-  // MARK: - WebSocket Integration
-  const { isConnected, addMessageListener, send } = useWebSocketService(
+  const { isConnected, addMessageListener, send } = usePersistentWebSocket(
     state.playerId
   );
 
-  // MARK: - Service References
   const gameMessageServiceRef = useRef<GameMessageService | null>(null);
   const gameStateServiceRef = useRef<GameStateService | null>(null);
 
-  // MARK: - Service and Listener Initialization
+  // Initialize services
   useEffect(() => {
     if (!state.playerId) return;
 
-    let isSubscribed = true;
-    console.log('[GameContext] Initializing services and listener');
-
-    // Create services only once with stable references
+    console.log('[GameContext] Initializing services');
     const getLocation = () => location;
 
-    if (!gameStateServiceRef.current) {
-      console.log('[GameContext] Creating GameStateService');
-      gameStateServiceRef.current = new GameStateService(send, setState);
-    }
+    // Initialize GameStateService
+    gameStateServiceRef.current = new GameStateService(send, setState);
 
-    if (!gameMessageServiceRef.current) {
-      console.log('[GameContext] Creating GameMessageService');
-      gameMessageServiceRef.current = new GameMessageService(
-        send,
-        setState,
-        setGeoObjects,
-        (damage, shooterId) =>
-          gameStateServiceRef.current?.handleHit(damage, shooterId),
-        getLocation,
-        locationManager,
-        state
-      );
-    }
+    // Initialize GameMessageService
+    gameMessageServiceRef.current = new GameMessageService(
+      send,
+      setState,
+      setGeoObjects,
+      (damage, shooterId) =>
+        gameStateServiceRef.current?.handleHit(damage, shooterId),
+      getLocation,
+      locationManager,
+      state
+    );
 
-    // Message handler with subscription check
-    const handleMessage = (message: GameMessage) => {
-      if (!isSubscribed) return;
-      console.log('[GameContext] Processing message:', message.type);
-      gameMessageServiceRef.current?.handleGameMessage(
-        message,
-        state.playerId!
-      );
+    return () => {
+      console.log('[GameContext] Cleaning up services');
+      gameMessageServiceRef.current = null;
+      gameStateServiceRef.current = null;
     };
+  }, [state.playerId]); // Only re-initialize when playerId changes
+
+  // Handle WebSocket messages
+  useEffect(() => {
+    if (!state.playerId || !gameMessageServiceRef.current) return;
 
     console.log('[GameContext] Setting up message listener');
+    const handleMessage = (message: GameMessage) => {
+      if (message.type === MessageType.WEBSOCKET_CONNECTED && !hasJoined) {
+        console.log('[GameContext] New connection, sending JOIN message');
+        gameMessageServiceRef.current?.sendJoinMessage(state.playerId!);
+        setHasJoined(true);
+      } else {
+        gameMessageServiceRef.current?.handleGameMessage(
+          message,
+          state.playerId!
+        );
+      }
+    };
+
     const cleanup = addMessageListener(handleMessage);
 
     return () => {
-      console.log('[GameContext] Cleaning up listener subscription');
-      isSubscribed = false;
+      console.log('[GameContext] Removing message listener');
       cleanup();
-      // Don't destroy services as they should persist
     };
-  }, [state.playerId]); // Minimal dependencies to prevent recreations // Remove unnecessary dependencies
+  }, [state.playerId, hasJoined, addMessageListener]);
 
+  // Reset join state when connection is lost
   useEffect(() => {
-    console.log('[GameContext] WebSocket connection status:', isConnected);
-  }, [isConnected, addMessageListener]);
+    if (!isConnected) {
+      console.log('[GameContext] Connection lost, resetting join state');
+      setHasJoined(false);
+    }
+  }, [isConnected]);
 
-  // MARK: - Game Actions
+  // Game actions
   const shoot = useCallback(
-    (location, heading) =>
-      gameStateServiceRef.current?.shoot(state.playerId!, location, heading),
+    (location, heading) => {
+      if (gameStateServiceRef.current) {
+        gameStateServiceRef.current.shoot(state.playerId!, location, heading);
+      }
+    },
     [state.playerId]
   );
 
-  const reload = useCallback(
-    () => gameStateServiceRef.current?.performReload(state.playerId!),
-    [state.playerId]
-  );
+  const reload = useCallback(() => {
+    if (gameStateServiceRef.current) {
+      gameStateServiceRef.current.performReload(state.playerId!);
+    }
+  }, [state.playerId]);
 
-  const updateGameScore = useCallback(
-    (action) => gameStateServiceRef.current?.updateGameScore(action),
-    []
-  );
+  const updateGameScore = useCallback((action) => {
+    if (gameStateServiceRef.current) {
+      gameStateServiceRef.current.updateGameScore(action);
+    }
+  }, []);
 
-  const handleAdReward = useCallback(
-    () => gameStateServiceRef.current?.handleAdReward(state.playerId!),
-    [state.playerId]
-  );
+  const handleAdReward = useCallback(() => {
+    if (gameStateServiceRef.current) {
+      gameStateServiceRef.current.handleAdReward(state.playerId!);
+    }
+  }, [state.playerId]);
 
-  const closeAdModal = useCallback(
-    () => gameStateServiceRef.current?.closeAdModal(state.playerId!),
-    [state.playerId]
-  );
+  const closeAdModal = useCallback(() => {
+    if (gameStateServiceRef.current) {
+      gameStateServiceRef.current.closeAdModal(state.playerId!);
+    }
+  }, [state.playerId]);
 
-  // MARK: - Context Value
   const contextValue: GameContextType = {
     ...state,
     geoObjects,
     setGeoObjects,
     shoot,
     reload,
-    startGame: () => setState((prev) => ({ ...prev, isGameStarted: true })),
-    endGame: () => setState((prev) => ({ ...prev, isGameStarted: false })),
+    startGame: useCallback(
+      () => setState((prev) => ({ ...prev, isGameStarted: true })),
+      []
+    ),
+    endGame: useCallback(
+      () => setState((prev) => ({ ...prev, isGameStarted: false })),
+      []
+    ),
     updateGameScore,
     handleAdReward,
     closeAdModal,
@@ -150,7 +162,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-// MARK: - Hook Export
 export const useGameContext = () => {
   const context = useContext(GameContext);
   if (!context) {
@@ -158,3 +169,5 @@ export const useGameContext = () => {
   }
   return context;
 };
+
+export default GameContext;

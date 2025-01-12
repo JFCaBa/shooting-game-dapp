@@ -12,26 +12,22 @@ import { LocationStateManager } from './LocationStateManager';
 import { GameState } from '../types/gameContext';
 import { PlayerStats } from '../types/player';
 
-// MARK: - Type Definitions
 type SendMessageFn = (message: GameMessage) => void;
 
-// MARK: - GameMessageService Class
 export class GameMessageService {
-  // MARK: - Properties
-  private hitValidationService: HitValidationService;
-  private locationManager: LocationStateManager;
-  private sendMessage: SendMessageFn;
-  private getLocation: () => LocationData | null;
-  private handleHit: (damage: number, shooterId?: string) => void;
-  private setGeoObjects: React.Dispatch<React.SetStateAction<GeoObject[]>>;
-  private setState: (
+  private readonly hitValidationService: HitValidationService;
+  private readonly sendMessage: SendMessageFn;
+  private readonly setState: (
     state: GameState | ((prevState: GameState) => GameState)
   ) => void;
-  private lastKnownLocation: LocationData | null = null;
-  private state: GameState | null = null;
-  private hasJoined: boolean = false;
+  private readonly setGeoObjects: React.Dispatch<
+    React.SetStateAction<GeoObject[]>
+  >;
+  private readonly handleHit: (damage: number, shooterId?: string) => void;
+  private readonly getLocation: () => LocationData | null;
+  private readonly locationManager: LocationStateManager;
+  private readonly state: GameState;
 
-  // MARK: - Constructor
   constructor(
     sendMessage: SendMessageFn,
     setState: (
@@ -48,20 +44,16 @@ export class GameMessageService {
     this.setState = setState;
     this.hitValidationService = new HitValidationService();
     this.handleHit = handleHit;
-    this.getLocation = () => {
-      const currentLocation = getLocation();
-      if (currentLocation) {
-        this.lastKnownLocation = currentLocation;
-      }
-      return this.lastKnownLocation;
-    };
+    this.getLocation = getLocation;
     this.setGeoObjects = setGeoObjects;
     this.locationManager = locationManager;
     this.state = state;
   }
 
   // MARK: - sendJoinMessage
-  public sendJoinMessage(playerId: string, location: LocationData): void {
+
+  public sendJoinMessage(playerId: string): void {
+    const location = this.getLocation();
     const pushToken = localStorage.getItem('pushToken');
     const joinMessage: GameMessage = {
       type: MessageType.JOIN,
@@ -76,10 +68,10 @@ export class GameMessageService {
     };
 
     try {
-      console.log('Sending join message:', joinMessage);
+      console.log('[GameMessageService] Sending join message:', joinMessage);
       this.sendMessage(joinMessage);
     } catch (error) {
-      console.error('Failed to send join message:', error);
+      console.error('[GameMessageService] Failed to send join message:', error);
     }
   }
 
@@ -93,7 +85,9 @@ export class GameMessageService {
     const currentLocation = this.locationManager.getCurrentLocation();
 
     if (!shootData || !shootData.location || !currentLocation) {
-      console.log('Missing required data for shot validation');
+      console.log(
+        '[GameMessageService] Missing required data for shot validation'
+      );
       return;
     }
 
@@ -121,8 +115,6 @@ export class GameMessageService {
         kind: 'shoot',
       },
     };
-
-    // MARK: - sendMessage
 
     this.sendMessage(shootMessage);
     if (hitValidation.isValid) {
@@ -155,8 +147,7 @@ export class GameMessageService {
     }, 1000);
   }
 
-  // MARK: - handleGeoObjectUpdate
-
+  // MARK: - geoObject update
   private handleGeoObjectUpdate(message: GameMessage): void {
     if (message.data) {
       const newGeoObject = message.data as GeoObject;
@@ -168,52 +159,16 @@ export class GameMessageService {
     }
   }
 
-  // MARK: - Reset State
-  public reset(): void {
-    console.log('[GameMessageService] Resetting service state');
-    this.hasJoined = false;
-  }
+  // MARK: - HANDLE MESSAGE
 
-  // MARK: - handleGameMessage
-  public async handleGameMessage(
+  public handleGameMessage(
     message: GameMessage,
     currentPlayerId: string
-  ): Promise<void> {
-    // MARK: WEBSOCKET_CONNECTED
-    if (message.type === MessageType.WEBSOCKET_CONNECTED && !this.hasJoined) {
-      try {
-        const currentLocation = this.getLocation();
-        const pushToken = localStorage.getItem('pushToken');
-
-        const joinMessage: GameMessage = {
-          type: MessageType.JOIN,
-          playerId: currentPlayerId,
-          data: {
-            location: currentLocation,
-            playerId: currentPlayerId,
-            kind: 'player',
-            heading: 0,
-          },
-          pushToken: pushToken,
-        };
-
-        console.log('[GameMessageService] Sending initial JOIN message');
-        this.sendMessage(joinMessage);
-        this.hasJoined = true;
-      } catch (error) {
-        console.error(
-          '[GameMessageService] Failed to send join message:',
-          error
-        );
-      }
-      return;
-    }
-
-    // MARK: STATS
+  ): void {
     switch (message.type) {
+      // MARK: - stats
       case MessageType.STATS:
         if (message.data && message.playerId === currentPlayerId) {
-          console.log('[GameMessageService] Updating stats');
           const stats = message.data as PlayerStats;
           this.setState((prev) => ({
             ...prev,
@@ -228,12 +183,10 @@ export class GameMessageService {
           }));
         }
         break;
-
-      // MARK: SOOT
-
+      // MARK: - shoot
       case MessageType.SHOOT:
         if (message.data && message.playerId !== currentPlayerId) {
-          await this.handleShoot(
+          void this.handleShoot(
             message,
             message.data as ShootData,
             currentPlayerId
@@ -244,17 +197,15 @@ export class GameMessageService {
               player.playerId === message.playerId
                 ? {
                     ...player,
-                    location: message.data.location!,
-                    heading: message.data.heading,
+                    location: message.data!.location!,
+                    heading: message.data!.heading,
                   }
                 : player
             ),
           }));
         }
         break;
-
-      // MARK: - HIT
-
+      // MARK: - hit
       case MessageType.HIT:
         if (
           message.data &&
@@ -263,28 +214,23 @@ export class GameMessageService {
           this.handleHit(message.data.shoot.damage, message.playerId);
         }
         break;
-
-      // MARK: DRONE_SHOOT_CONFIRMED
+      // MARK: - shoot confirmed
       case MessageType.DRONE_SHOOT_CONFIRMED:
         this.showReward((message.data && message.data.reward) || 2);
         break;
-
-      // MARK: - HIT_CONFIRMED
-
+      // MARK - hit confirmed
       case MessageType.HIT_CONFIRMED:
         if (message.data && message.senderId === currentPlayerId) {
           this.setState((prev) => ({
             ...prev,
             gameScore: {
               ...prev.gameScore,
-              hits: prev.gameScore.hits + message.data.damage,
+              hits: prev.gameScore.hits + message.data!.damage,
             },
           }));
         }
         break;
-
-      // MARK: KILL
-
+      // MARK: - kill
       case MessageType.KILL:
         if (message.data && message.senderId === currentPlayerId) {
           this.setState((prev) => ({
@@ -296,16 +242,14 @@ export class GameMessageService {
           }));
         }
         break;
-
-      // MARK: LEAVE
+      // MARK: - leave
       case MessageType.LEAVE:
         this.setState((prev) => ({
           ...prev,
           players: prev.players.filter((p) => p.playerId !== message.playerId),
         }));
         break;
-
-      // MARK: - ANNOUNCED
+      // MARK: - announced
       case MessageType.ANNOUNCED:
         if (message.data && message.playerId !== currentPlayerId) {
           const newPlayer = message.data as Player;
@@ -318,9 +262,7 @@ export class GameMessageService {
           }));
         }
         break;
-
-      // MARK: NEW_DRONE
-
+      // MARK: - new drone
       case MessageType.NEW_DRONE:
         if (message.data && message.playerId === currentPlayerId) {
           this.setState((prev) => {
@@ -336,25 +278,19 @@ export class GameMessageService {
           });
         }
         break;
-
-      // MARK: NEW_GEO_OBJECT
-
+      // MARK: - new geoObject
       case MessageType.NEW_GEO_OBJECT:
         this.handleGeoObjectUpdate(message);
         break;
-
-      // MARK: GEO_OBJECT_HIT
-
+      // MARK: - geoObject hit
       case MessageType.GEO_OBJECT_HIT:
         if (message.data && message.data.geoObject) {
           this.setGeoObjects((prev) =>
-            prev.filter((obj) => obj.id !== message.data.geoObject.id)
+            prev.filter((obj) => obj.id !== message.data!.geoObject!.id)
           );
         }
         break;
-
-      // MARK: GEO_OBJECT_SHOOT_CONFIRMED
-
+      // MARK: geoObject shoot confirmed
       case MessageType.GEO_OBJECT_SHOOT_CONFIRMED:
         if (message.data && message.data.geoObject) {
           document.dispatchEvent(

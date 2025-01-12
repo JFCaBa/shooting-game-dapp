@@ -2,8 +2,8 @@ import { GameMessage, MessageType } from '../types/game';
 
 type WebSocketCallback = (message: GameMessage) => void;
 
-export class WebSocketService {
-  private static instance: WebSocketService;
+export class WebSocketPersistentService {
+  private static instance: WebSocketPersistentService;
   private socket: WebSocket | null = null;
   private isConnected = false;
   private isConnecting = false;
@@ -13,37 +13,44 @@ export class WebSocketService {
   private readonly reconnectDelay = 3000;
   private pingTimer: NodeJS.Timer | null = null;
   private callbacks: Set<WebSocketCallback> = new Set();
+  private messageQueue: GameMessage[] = [];
   private wsUrl: string;
+  private playerId: string | null = null;
 
   private constructor() {
     this.wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8182';
-    console.log('[WebSocket] Initialized with URL:', this.wsUrl);
+    console.log('[WebSocketPersistent] Initialized with URL:', this.wsUrl);
   }
 
-  static getInstance(): WebSocketService {
-    if (!WebSocketService.instance) {
-      WebSocketService.instance = new WebSocketService();
+  static getInstance(): WebSocketPersistentService {
+    if (!WebSocketPersistentService.instance) {
+      WebSocketPersistentService.instance = new WebSocketPersistentService();
     }
-    return WebSocketService.instance;
+    return WebSocketPersistentService.instance;
+  }
+
+  initialize(playerId: string): void {
+    this.playerId = playerId;
+    if (!this.isConnected && !this.isConnecting) {
+      this.connect();
+    }
   }
 
   connect(): void {
-    if (this.cleanup) {
-      console.log('[WebSocket] Cleanup in progress, skipping connect');
+    if (!this.playerId) {
+      console.warn('[WebSocketPersistent] Cannot connect without playerId');
       return;
     }
 
-    if (this.isConnecting) {
-      console.log('[WebSocket] Already connecting');
+    if (
+      this.cleanup ||
+      this.isConnecting ||
+      (this.isConnected && this.socket?.readyState === WebSocket.OPEN)
+    ) {
       return;
     }
 
-    if (this.isConnected && this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Already connected');
-      return;
-    }
-
-    console.log('[WebSocket] Attempting connection to:', this.wsUrl);
+    console.log('[WebSocketPersistent] Attempting connection to:', this.wsUrl);
     this.setupConnection();
   }
 
@@ -57,22 +64,28 @@ export class WebSocketService {
       this.socket.onerror = this.handleError.bind(this);
       this.socket.onclose = this.handleClose.bind(this);
     } catch (error) {
-      console.error('[WebSocket] Setup error:', error);
+      console.error('[WebSocketPersistent] Setup error:', error);
       this.handleError(error as Event);
     }
   }
 
   private handleOpen(): void {
-    console.log('[WebSocket] Connected successfully');
+    console.log('[WebSocketPersistent] Connected successfully');
     this.isConnected = true;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
     this.startPingTimer();
 
+    // Send any queued messages
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift();
+      if (message) this.send(message);
+    }
+
     // Notify connection established
     const message: GameMessage = {
       type: MessageType.WEBSOCKET_CONNECTED,
-      playerId: '',
+      playerId: this.playerId || '',
       data: {},
     };
     this.notifyListeners(message);
@@ -81,31 +94,31 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       if (event.data === 'pong') {
-        console.log('[WebSocket] Received pong');
         return;
       }
 
-      console.log('[WebSocket] Received message:', event.data);
       const message = JSON.parse(event.data) as GameMessage;
       this.notifyListeners(message);
     } catch (error) {
-      console.error('[WebSocket] Message parsing error:', error);
+      console.error('[WebSocketPersistent] Message parsing error:', error);
     }
   }
 
   private notifyListeners(message: GameMessage): void {
-    console.log(`[WebSocket] Notifying ${this.callbacks.size} listeners`);
     this.callbacks.forEach((callback) => {
       try {
         callback(message);
       } catch (error) {
-        console.error('[WebSocket] Error in message listener:', error);
+        console.error(
+          '[WebSocketPersistent] Error in message listener:',
+          error
+        );
       }
     });
   }
 
   private handleError(event: Event): void {
-    console.error('[WebSocket] Error occurred:', event);
+    console.error('[WebSocketPersistent] Error occurred:', event);
     this.isConnected = false;
     this.isConnecting = false;
     this.handleDisconnect();
@@ -114,9 +127,7 @@ export class WebSocketService {
   private handleClose(event: CloseEvent): void {
     if (this.cleanup) return;
 
-    console.log(
-      `[WebSocket] Closed with code: ${event.code}, reason: ${event.reason}`
-    );
+    console.log(`[WebSocketPersistent] Closed with code: ${event.code}`);
     this.isConnected = false;
     this.isConnecting = false;
     this.handleDisconnect();
@@ -128,19 +139,11 @@ export class WebSocketService {
       this.reconnectAttempts < this.maxReconnectAttempts
     ) {
       this.reconnectAttempts++;
-      console.log(
-        `[WebSocket] Attempting to reconnect in ${this.reconnectDelay}ms (Attempt ${this.reconnectAttempts})`
-      );
       setTimeout(() => this.connect(), this.reconnectDelay);
-    } else {
-      console.log(
-        '[WebSocket] Max reconnection attempts reached or already connecting'
-      );
     }
   }
 
   disconnect(): void {
-    console.log('[WebSocket] Initiating disconnect');
     this.cleanup = true;
     this.stopPingTimer();
     if (this.socket) {
@@ -149,62 +152,40 @@ export class WebSocketService {
     }
     this.isConnected = false;
     this.isConnecting = false;
+    this.playerId = null;
   }
 
   send(message: GameMessage): void {
     if (!this.isConnected || !this.socket) {
-      console.warn('[WebSocket] Cannot send message - not connected:', message);
+      this.messageQueue.push(message);
       return;
     }
 
     try {
       const messageStr = JSON.stringify(message);
-      console.log('[WebSocket] Sending message:', messageStr);
       this.socket.send(messageStr);
     } catch (error) {
-      console.error('[WebSocket] Send error:', error);
+      console.error('[WebSocketPersistent] Send error:', error);
+      this.messageQueue.push(message);
     }
   }
 
   addMessageListener(callback: WebSocketCallback): () => void {
-    this.callbacks.clear();
-
-    const callbackWrapper = (message: GameMessage) => {
-      console.log(
-        `[WebSocket] Processing message via listener, type: ${message.type}`
-      );
-      callback(message);
-    };
-
-    console.log(
-      '[WebSocket] Adding message listener, current count:',
-      this.callbacks.size
-    );
-    this.callbacks.add(callbackWrapper);
-    console.log('[WebSocket] New listener count:', this.callbacks.size);
-
-    // Return cleanup function that removes this specific wrapper
-    return () => {
-      console.log('[WebSocket] Removing specific message listener');
-      this.callbacks.delete(callbackWrapper);
-      console.log('[WebSocket] Remaining listeners:', this.callbacks.size);
-    };
+    this.callbacks.add(callback);
+    return () => this.callbacks.delete(callback);
   }
 
   removeMessageListener(callback: WebSocketCallback): void {
-    console.log('[WebSocket] Removing message listener');
     this.callbacks.delete(callback);
   }
 
   private startPingTimer(): void {
     this.stopPingTimer();
-    console.log('[WebSocket] Starting ping timer');
     this.pingTimer = setInterval(() => this.sendPing(), 30000);
   }
 
   private stopPingTimer(): void {
     if (this.pingTimer) {
-      console.log('[WebSocket] Stopping ping timer');
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
@@ -212,7 +193,6 @@ export class WebSocketService {
 
   private sendPing(): void {
     if (this.socket && this.isConnected) {
-      console.log('[WebSocket] Sending ping');
       this.socket.send('ping');
     }
   }
@@ -220,11 +200,7 @@ export class WebSocketService {
   getConnectionStatus(): boolean {
     return this.isConnected;
   }
-
-  reconnect(): void {
-    console.log('[WebSocket] Manual reconnect requested');
-    this.cleanup = false;
-    this.reconnectAttempts = 0;
-    this.connect();
-  }
 }
+
+export const webSocketPersistentService =
+  WebSocketPersistentService.getInstance();
