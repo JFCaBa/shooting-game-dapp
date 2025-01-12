@@ -23,6 +23,8 @@ export class GameStateService {
     this.setState = setState;
   }
 
+  // MARK: - sendReloadRequest
+
   public sendReloadRequest(playerId: string): void {
     console.log('[GameStateService] Sending reload request');
     this.sendMessage({
@@ -31,6 +33,8 @@ export class GameStateService {
     });
   }
 
+  // MARK: - sendRecoverRequest
+
   public sendRecoverRequest(playerId: string): void {
     console.log('[GameStateService] Sending recover request');
     this.sendMessage({
@@ -38,6 +42,8 @@ export class GameStateService {
       playerId: playerId,
     });
   }
+
+  // MARK: - performReload
 
   public performReload(playerId: string): void {
     console.log('[GameStateService] Starting reload process');
@@ -54,6 +60,8 @@ export class GameStateService {
     }, RELOAD_TIME);
   }
 
+  // MARK: - performRecover
+
   public performRecover(playerId: string): void {
     console.log('[GameStateService] Starting recover process');
     this.setState((prev) => {
@@ -68,6 +76,8 @@ export class GameStateService {
       this.sendRecoverRequest(playerId);
     }, RELOAD_TIME);
   }
+
+  // MARK: - handleAdReward
 
   public handleAdReward(playerId: string): void {
     console.log('[GameStateService] Processing ad reward');
@@ -84,6 +94,8 @@ export class GameStateService {
       }
     });
   }
+
+  // MARK: - closeAdModal
 
   public closeAdModal(playerId: string): void {
     console.log('[GameStateService] Closing ad modal');
@@ -115,6 +127,8 @@ export class GameStateService {
     });
   }
 
+  // MARK: - shoot
+
   public shoot(
     playerId: string,
     location: LocationData,
@@ -133,16 +147,6 @@ export class GameStateService {
       if (prev.isReloading) {
         console.log('[GameStateService] Blocked - currently reloading');
         return prev;
-      }
-
-      const newAmmo = Math.max(0, prev.currentAmmo - 1);
-      if (newAmmo === 0) {
-        console.log('[GameStateService] No ammo left, showing ad modal');
-        return {
-          ...prev,
-          currentAmmo: newAmmo,
-          showAdModal: 'ammo',
-        };
       }
 
       if (this.isShooting) {
@@ -169,13 +173,10 @@ export class GameStateService {
       setTimeout(() => {
         this.isShooting = false;
       }, 500);
-
-      return {
-        ...prev,
-        currentAmmo: newAmmo,
-      };
     });
   }
+
+  // MARK: - sendKillMessage
 
   private sendKillMessage(targetPlayerId: string, playerId: string): void {
     console.log('[GameStateService] Sending kill message');
@@ -188,6 +189,8 @@ export class GameStateService {
       },
     });
   }
+
+  // MARK: - handleHit
 
   public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
@@ -220,6 +223,8 @@ export class GameStateService {
       };
     });
   }
+
+  // MARK: - updateGameScore
 
   public updateGameScore(action: GameScoreAction): void {
     console.log('[GameStateService] Updating game score:', action.type);
