@@ -1,4 +1,5 @@
 import { DroneData, GeoObject, Player, GameScore, LocationData } from './game';
+import { WebSocketService } from '../services/WebSocketService';
 
 export type AdModalType = 'ammo' | 'lives' | null;
 

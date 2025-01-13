@@ -8,7 +8,7 @@ import React, {
   useCallback,
   useEffect,
 } from 'react';
-import { GameMessage, GeoObject } from '../types/game';
+import { GameMessage, GeoObject, LocationData } from '../types/game';
 import { generateTemporaryId } from '../utils/uuid';
 import { GameMessageService } from '../services/GameMessageService';
 import { GameStateService } from '../services/GameStateService';
@@ -96,9 +96,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('[GameContext] Cleaning up listener subscription');
       isSubscribed = false;
       cleanup();
-      // Don't destroy services as they should persist
     };
-  }, [state.playerId]); // Minimal dependencies to prevent recreations // Remove unnecessary dependencies
+  }, [state.playerId]);
 
   useEffect(() => {
     console.log('[GameContext] WebSocket connection status:', isConnected);
@@ -106,7 +105,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // MARK: - Game Actions
   const shoot = useCallback(
-    (location, heading) =>
+    (location: LocationData, heading: number) =>
       gameStateServiceRef.current?.shoot(state.playerId!, location, heading),
     [state.playerId]
   );

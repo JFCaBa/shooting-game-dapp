@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useGameContext } from '../context/GameContext';
-import { useLocationContext } from '../context/LocationContext';
-import { useWebSocketService } from '../hooks/useWebSocketService';
+import { useWebSocket } from '../context/WebSocketContext';
 import Camera from '../components/game/Camera';
 import ARView from '../components/ar/ARView';
 import Crosshair from '../components/game/Crosshair';
@@ -19,7 +18,6 @@ export const Game = React.memo(() => {
     isRecovering,
     currentLives,
     maxLives,
-    players,
     playerId,
     drones,
     geoObjects,
@@ -29,21 +27,13 @@ export const Game = React.memo(() => {
     closeAdModal,
     showAdModal,
   } = useGameContext();
-  const { location } = useLocationContext();
 
-  // Use the improved WebSocket hook
-  const { isConnected, send } = useWebSocketService(playerId);
-
-  // Memoize other players calculation
-  const otherPlayers = useMemo(() => {
-    return players.filter((player) => player.playerId !== playerId);
-  }, [players, playerId]);
+  const { isConnected, send } = useWebSocket();
 
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
       if (playerId) {
-        // Send remove drones message to server
         send({
           type: MessageType.REMOVE_DRONES,
           playerId: playerId,
@@ -53,7 +43,6 @@ export const Game = React.memo(() => {
     };
   }, [playerId, send]);
 
-  // Memoize handlers
   const handleDroneHit = useCallback(
     (droneId: string) => {
       if (!playerId) return;
@@ -79,7 +68,7 @@ export const Game = React.memo(() => {
 
   const handleGeoObjectHit = useCallback(
     (geoObjectId: string) => {
-      if (!playerId || !location) return;
+      if (!playerId) return;
 
       const targetObject = geoObjects?.find((obj) => obj.id === geoObjectId);
       if (!targetObject) return;
@@ -89,7 +78,6 @@ export const Game = React.memo(() => {
         playerId: playerId,
         data: {
           geoObject: targetObject,
-          location: location,
           kind: 'geoObject',
         },
       });
@@ -99,11 +87,6 @@ export const Game = React.memo(() => {
         geoObjectId: geoObjectId,
       });
 
-      // Play collection sound
-      const audio = new Audio('/assets/collect_sound.wav');
-      audio.play().catch(console.error);
-
-      // Show reward message if applicable
       if (targetObject.metadata?.reward) {
         document.dispatchEvent(
           new CustomEvent('showReward', {
@@ -115,96 +98,64 @@ export const Game = React.memo(() => {
         );
       }
     },
-    [playerId, geoObjects, location, send, updateGameScore]
+    [playerId, geoObjects, send, updateGameScore]
   );
-
-  // Memoize AR view to prevent unnecessary re-renders
-  const arView = (
-    <div className="absolute inset-0">
-      <ARView
-        drones={drones}
-        geoObjects={geoObjects}
-        onDroneShoot={handleDroneHit}
-        onGeoObjectHit={handleGeoObjectHit}
-      />
-    </div>
-  );
-
-  // Memoize status components
-  const statusBar = (
-    <StatusBar
-      ammo={currentAmmo}
-      maxAmmo={maxAmmo}
-      lives={currentLives}
-      maxLives={maxLives}
-    />
-  );
-
-  const gameStatus = (
-    <GameStatus
-      droneCount={drones.length}
-      hits={gameScore.hits}
-      kills={gameScore.kills}
-      isOnline={navigator.onLine}
-      isWebSocketConnected={isConnected}
-    />
-  );
-
-  // Memoize HitEffect to prevent unnecessary re-renders
-  const hitEffect = useMemo(() => <HitEffect />, []);
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* Base layer - Camera */}
       <div className="absolute inset-0">
         <Camera />
       </div>
 
-      {/* AR Layer */}
-      {arView}
+      <div className="absolute inset-0">
+        <ARView
+          drones={drones}
+          geoObjects={geoObjects}
+          onDroneShoot={handleDroneHit}
+          onGeoObjectHit={handleGeoObjectHit}
+        />
+      </div>
 
-      {/* UI Layer */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Status Bar */}
         <div className="absolute top-0 left-0 right-0 p-4 bg-black bg-opacity-80 pointer-events-auto">
-          {statusBar}
-          {gameStatus}
+          <StatusBar
+            ammo={currentAmmo}
+            maxAmmo={maxAmmo}
+            lives={currentLives}
+            maxLives={maxLives}
+          />
+          <GameStatus
+            droneCount={drones.length}
+            hits={gameScore.hits}
+            kills={gameScore.kills}
+            isOnline={navigator.onLine}
+            isWebSocketConnected={isConnected}
+          />
         </div>
 
-        {/* Crosshair */}
         <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
           <Crosshair />
         </div>
 
-        {/* Reloading Overlay */}
         {isReloading && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-4xl">
             Reloading...
           </div>
         )}
 
-        {/* Recovering Overlay */}
         {isRecovering && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-4xl">
             Recovering...
           </div>
         )}
 
-        {/* Hit Effect Layer */}
-        {hitEffect}
+        <HitEffect />
 
-        {/* Ad Modal */}
         {showAdModal && (
           <RewardAdModal
             type={showAdModal}
-            onClose={() => {
-              console.log('[Game] Modal close requested');
-              closeAdModal();
-            }}
-            onReward={() => {
-              console.log('[Game] Reward requested');
-              handleAdReward();
-            }}
+            onClose={closeAdModal}
+            onReward={handleAdReward}
           />
         )}
       </div>
