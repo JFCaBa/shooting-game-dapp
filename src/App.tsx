@@ -11,17 +11,17 @@ import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import DevicePermissionsHandler from './components/permissions/DevicePermissionsHandler';
-import { adManager } from './services/AdManager';
+import { adService } from './services/AdService';
 
 const App = () => {
   useEffect(() => {
     try {
       if (process.env.NODE_ENV === 'production') {
-        console.log('Initializing AdManager in production mode');
-        adManager.isSupported();
+        console.log('Initializing adService in production mode');
+        adService.isSupported();
       }
     } catch (error) {
-      console.error('Error initializing AdManager:', error);
+      console.error('Error initializing adService:', error);
     }
   }, []);
 

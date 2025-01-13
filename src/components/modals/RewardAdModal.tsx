@@ -1,5 +1,5 @@
 import React from 'react';
-import { adManager } from '../../services/AdManager';
+import { adService } from '../../services/AdService';
 
 interface RewardAdModalProps {
   type: 'ammo' | 'lives';
@@ -10,7 +10,7 @@ interface RewardAdModalProps {
 const RewardAdModal = ({ type, onClose, onReward }: RewardAdModalProps) => {
   const handleWatchAd = async () => {
     console.log('Watch Ad clicked');
-    const success = await adManager.showRewardAd(onReward);
+    const success = await adService.showRewardedAd();
     if (success) {
       console.log('Ad completed successfully');
       onClose();
