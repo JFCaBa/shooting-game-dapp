@@ -68,7 +68,6 @@ export class LocationStateManager {
       accuracy: position.coords.accuracy,
     };
 
-    console.log('LocationStateManager: Location updated:', newLocation);
     this.currentLocation = newLocation;
 
     // Notify all subscribers

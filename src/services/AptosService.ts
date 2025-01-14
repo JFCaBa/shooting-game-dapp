@@ -52,7 +52,6 @@ export class AptosService {
       ) as unknown as CoinStoreResource | undefined;
 
       const balance = coinResource?.data?.coin?.value || '0';
-      console.log('Balance fetched:', balance);
       const intBalance = parseInt(balance);
       const scaledBalance = intBalance / 1e8;
       return scaledBalance.toString();

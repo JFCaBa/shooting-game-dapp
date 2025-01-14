@@ -1,34 +1,14 @@
-// src/types/inventory.ts
-
-export type InventoryItemType = 'ammo' | 'health' | 'powerup' | 'collectible';
-
 export interface InventoryItem {
-  id: string;
-  name: string;
-  quantity: number;
-  type: InventoryItemType;
-  imageUrl: string;
-  description?: string;
-  metadata?: Record<string, any>;
+  itemId: string;
+  type: 'weapon' | 'target' | 'powerup';
+  metadata: Map<string, any>;
+  collectedAt: string;
+  used: boolean;
+  usedAt?: string;
 }
 
-export interface InventoryState {
+export interface Inventory {
+  playerId: string;
   items: InventoryItem[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-export interface UseItemResponse {
-  success: boolean;
-  message?: string;
-  updatedQuantity?: number;
-}
-
-export interface FetchInventoryResponse {
-  items: InventoryItem[];
-  pagination?: {
-    total: number;
-    page: number;
-    limit: number;
-  };
+  lastUpdated: string;
 }

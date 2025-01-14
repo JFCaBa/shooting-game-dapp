@@ -11,7 +11,6 @@ export class ARSceneManager {
   private isDestroyed: boolean = false;
 
   constructor(container: HTMLElement) {
-    console.log('Initializing AR Scene Manager');
     this.scene = new THREE.Scene();
     this.camera = this.createCamera();
     this.renderer = this.createRenderer(container);
@@ -29,10 +28,6 @@ export class ARSceneManager {
     );
     camera.position.set(0, 1.6, 0);
     camera.rotation.set(0, 0, 0);
-    console.log('Camera created:', {
-      position: camera.position,
-      rotation: camera.rotation,
-    });
     return camera;
   }
 
@@ -49,13 +44,11 @@ export class ARSceneManager {
       container.removeChild(container.firstChild);
     }
     container.appendChild(renderer.domElement);
-    console.log('Renderer created');
     return renderer;
   }
 
   private createControls(): DeviceOrientationControls {
     const controls = new DeviceOrientationControls(this.camera);
-    console.log('Device orientation controls created');
     return controls;
   }
 
@@ -66,15 +59,11 @@ export class ARSceneManager {
     // const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     // directionalLight.position.set(0, 1, 0);
     // this.scene.add(directionalLight);
-    console.log('Lighting setup completed');
   }
 
   private setupGeoObjectManager(): void {
     geoObjectManager.initialize(this.scene);
-    geoObjectManager.setUpdateCallback((count) => {
-      console.log('GeoObject count updated:', count);
-    });
-    console.log('GeoObjectManager initialized');
+    geoObjectManager.setUpdateCallback((count) => {});
   }
 
   public startAnimation(): void {
@@ -92,7 +81,6 @@ export class ARSceneManager {
     };
 
     animate();
-    console.log('Animation loop started');
   }
 
   public handleResize(): void {
@@ -110,7 +98,6 @@ export class ARSceneManager {
 
   public cleanup(): void {
     if (this.isDestroyed) return;
-    console.log('Cleaning up AR Scene Manager');
     this.isDestroyed = true;
 
     if (this.animationFrameId !== null) {
@@ -129,8 +116,6 @@ export class ARSceneManager {
     while (this.scene.children.length > 0) {
       this.scene.remove(this.scene.children[0]);
     }
-
-    console.log('Cleanup completed');
   }
 
   public getScene(): THREE.Scene {

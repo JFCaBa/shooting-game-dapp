@@ -81,7 +81,6 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       if (event.data === 'pong') {
-        console.log('[WebSocket] Received pong');
         return;
       }
 
@@ -170,9 +169,6 @@ export class WebSocketService {
     this.callbacks.clear();
 
     const callbackWrapper = (message: GameMessage) => {
-      console.log(
-        `[WebSocket] Processing message via listener, type: ${message.type}`
-      );
       callback(message);
     };
 
@@ -198,13 +194,11 @@ export class WebSocketService {
 
   private startPingTimer(): void {
     this.stopPingTimer();
-    console.log('[WebSocket] Starting ping timer');
     this.pingTimer = setInterval(() => this.sendPing(), 30000);
   }
 
   private stopPingTimer(): void {
     if (this.pingTimer) {
-      console.log('[WebSocket] Stopping ping timer');
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
@@ -212,7 +206,6 @@ export class WebSocketService {
 
   private sendPing(): void {
     if (this.socket && this.isConnected) {
-      console.log('[WebSocket] Sending ping');
       this.socket.send('ping');
     }
   }

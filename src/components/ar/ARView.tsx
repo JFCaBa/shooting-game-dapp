@@ -168,7 +168,6 @@ const ARView: React.FC<ARViewProps> = ({
           throw new Error('WebGL not supported');
         }
       } catch (e) {
-        console.error('WebGL not supported:', e);
         throw new Error('WebGL is not supported in this browser');
       }
     };

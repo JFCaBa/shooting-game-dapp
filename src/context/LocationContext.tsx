@@ -26,7 +26,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Subscribe to updates
     const unsubLocation = locationManager.subscribeToLocation((newLocation) => {
-      console.log('LocationContext: Location updated:', newLocation);
       setLocation(newLocation);
     });
 

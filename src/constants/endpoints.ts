@@ -14,6 +14,8 @@ export const API_ENDPOINTS = {
     `${BASE_URL}/api/v1/players/${address}/achievements`,
   PLAYER_UPDATE_DETAILS: `${BASE_URL}/api/v1/players/updatePlayerDetails`,
   PLAYER_UPDATE_PASSWORD: `${BASE_URL}/api/v1/players/updatePassword`,
+  INVENTORY: (playerId: string) =>
+    `${BASE_URL}/api/v1/players/${playerId}/inventory`,
 
   // Game related endpoints
   HALL_OF_FAME: `${BASE_URL}/api/v1/halloffame/kills`,

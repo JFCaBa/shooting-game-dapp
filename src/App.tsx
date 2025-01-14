@@ -6,6 +6,7 @@ import { LocationProvider } from './context/LocationContext';
 import { AchievementsProvider } from './context/AchievementsContext';
 import { WalletProvider } from './context/WalletContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { InventoryProvider } from './context/InventoryContext';
 import GameLayout from './layouts/GameLayout';
 import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
@@ -26,22 +27,29 @@ const App = () => {
   }, []);
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <WebSocketProvider>
         <WalletProvider>
           <LocationProvider>
             <NotificationProvider>
               <GameProvider>
-                <AchievementsProvider>
-                  <DevicePermissionsHandler>
-                    <Routes>
-                      <Route path="/create-user" element={<CreateUser />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/*" element={<GameLayout />} />
-                    </Routes>
-                  </DevicePermissionsHandler>
-                </AchievementsProvider>
+                <InventoryProvider>
+                  <AchievementsProvider>
+                    <DevicePermissionsHandler>
+                      <Routes>
+                        <Route path="/create-user" element={<CreateUser />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/*" element={<GameLayout />} />
+                      </Routes>
+                    </DevicePermissionsHandler>
+                  </AchievementsProvider>
+                </InventoryProvider>
               </GameProvider>
             </NotificationProvider>
           </LocationProvider>

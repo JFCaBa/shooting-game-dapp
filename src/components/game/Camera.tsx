@@ -23,7 +23,6 @@ const Camera = () => {
           if (isMounted && videoRef.current && !videoRef.current.srcObject) {
             videoRef.current.srcObject = stream;
             streamRef.current = stream;
-            console.log('Camera stream initialized');
           }
         }
       } catch (err) {
@@ -48,7 +47,6 @@ const Camera = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      console.log('Camera cleanup completed');
     };
   }, []); // Empty dependency array since we only want this to run once
 

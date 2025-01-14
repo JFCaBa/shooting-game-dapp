@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { MessagePayload } from 'firebase/messaging';
 import { firebaseService } from '../services/FirebaseService';
-import { WebSocketService } from '../services/WebSocketService';
-import { MessageType } from '../types/game';
 
 interface NotificationContextType {
   pushToken: string | null;
@@ -50,7 +48,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         const token = await firebaseService.requestPermission();
         if (token) {
           setPushToken(token);
-          sendTokenToServer(token);
         }
       }
     };
@@ -69,22 +66,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const sendTokenToServer = (token: string) => {
-    const wsService = WebSocketService.getInstance();
-    wsService.send({
-      type: MessageType.UPDATE_PUSH_TOKEN,
-      playerId: localStorage.getItem('playerId') || '',
-      data: {},
-      pushToken: token,
-    });
-  };
-
   const requestPermission = async () => {
     const token = await firebaseService.requestPermission();
     if (token) {
       setPushToken(token);
       setHasPermission(true);
-      sendTokenToServer(token);
     }
   };
 
