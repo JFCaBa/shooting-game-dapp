@@ -68,14 +68,6 @@ export class WebSocketService {
     this.isConnecting = false;
     this.reconnectAttempts = 0;
     this.startPingTimer();
-
-    // Notify connection established
-    const message: GameMessage = {
-      type: MessageType.WEBSOCKET_CONNECTED,
-      playerId: '',
-      data: {},
-    };
-    this.notifyListeners(message);
   }
 
   private handleMessage(event: MessageEvent): void {

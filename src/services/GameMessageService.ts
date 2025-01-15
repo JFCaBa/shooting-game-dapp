@@ -179,40 +179,11 @@ export class GameMessageService {
     message: GameMessage,
     currentPlayerId: string
   ): Promise<void> {
-    // MARK: WEBSOCKET_CONNECTED
-    if (message.type === MessageType.WEBSOCKET_CONNECTED && !this.hasJoined) {
-      try {
-        const currentLocation = this.getLocation();
-        const pushToken = localStorage.getItem('pushToken');
-
-        const joinMessage: GameMessage = {
-          type: MessageType.JOIN,
-          playerId: currentPlayerId,
-          data: {
-            location: currentLocation,
-            playerId: currentPlayerId,
-            kind: 'player',
-            heading: 0,
-          },
-          pushToken: pushToken,
-        };
-
-        console.log('[GameMessageService] Sending initial JOIN message');
-        this.sendMessage(joinMessage);
-        this.hasJoined = true;
-      } catch (error) {
-        console.error(
-          '[GameMessageService] Failed to send join message:',
-          error
-        );
-      }
-      return;
-    }
-
     // MARK: STATS
     switch (message.type) {
       case MessageType.STATS:
         if (message.data && message.playerId === currentPlayerId) {
+          this.hasJoined = true;
           console.log('[GameMessageService] Updating stats');
           const stats = message.data as PlayerStats;
           this.setState((prev) => ({

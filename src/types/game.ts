@@ -48,7 +48,6 @@ export type GameScore = {
 };
 
 export enum MessageType {
-  WEBSOCKET_CONNECTED = 'websocket_connected',
   JOIN = 'join',
   STATS = 'stats',
   SHOOT = 'shoot',
