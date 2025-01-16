@@ -1,6 +1,6 @@
 // src/services/SoundService.ts
 
-type SoundType = 'shoot' | 'explosion' | 'collect';
+type SoundType = 'shoot' | 'explosion' | 'collect' | 'entry';
 
 interface Sound {
   audio: HTMLAudioElement;
@@ -21,6 +21,7 @@ export class SoundService {
     shoot: '/assets/shoot_sound.wav',
     explosion: '/assets/explosion_sound.wav',
     collect: '/assets/collect_sound.wav',
+    entry: '/assets/entry_sound.wav',
   };
 
   private constructor() {
