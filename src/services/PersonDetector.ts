@@ -27,6 +27,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - initializeTensorFlow
   private async initializeTensorFlow() {
     try {
       // Set the backend to WebGL and wait for it to initialize
@@ -38,6 +39,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - initializeDetector
   private async initializeDetector() {
     try {
       console.log('Loading COCO-SSD model...');
@@ -50,6 +52,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - createDebugOverlay
   private createDebugOverlay() {
     this.debugOverlay = document.createElement('div');
     this.debugOverlay.style.position = 'absolute';
@@ -61,6 +64,7 @@ export class PersonDetector {
     document.body.appendChild(this.debugOverlay);
   }
 
+  // MARK: - updateDebugVisualization
   private updateDebugVisualization(detections: DetectionBox[]) {
     if (!this.debugOverlay || !this.videoElement) return;
 
@@ -128,6 +132,7 @@ export class PersonDetector {
     });
   }
 
+  // MARK: - findCameraElement
   private findCameraElement() {
     this.videoElement = document.querySelector('video');
     if (!this.videoElement) {
@@ -135,6 +140,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - getCameraFeed
   private getCameraFeed(): ImageData | null {
     if (!this.videoElement) {
       this.findCameraElement();
@@ -157,6 +163,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - detectPerson
   public async detectPerson(): Promise<boolean> {
     if (!this.detector) {
       console.warn('Person detector not initialized');
@@ -198,6 +205,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - isPointInPersonBox
   public async isPointInPersonBox(x: number, y: number): Promise<boolean> {
     if (!this.detector) {
       console.warn('Person detector not initialized');
@@ -232,6 +240,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - cleanup
   public cleanup() {
     if (this.debugOverlay) {
       this.debugOverlay.remove();
@@ -239,6 +248,7 @@ export class PersonDetector {
     }
   }
 
+  // MARK: - toogleDebug
   public toggleDebug(enabled: boolean) {
     this.isDebugging = enabled;
     if (!enabled && this.debugOverlay) {
