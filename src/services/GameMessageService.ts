@@ -184,7 +184,7 @@ export class GameMessageService {
       case MessageType.STATS:
         if (message.data && message.playerId === currentPlayerId) {
           this.hasJoined = true;
-          console.log('[GameMessageService] Updating stats');
+          console.log('[GameMessageService] Updating stats: ', message.data);
           const stats = message.data as PlayerStats;
           this.setState((prev) => ({
             ...prev,
