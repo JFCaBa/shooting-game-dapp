@@ -10,6 +10,7 @@ import ARDroneModel from './models/ARDroneModel';
 import GeoObjectNode from './models/GeoObjectNode';
 import Camera from '../game/Camera';
 import { calculateDistance } from '../../utils/maths';
+import { PersonDetector } from '../../services/PersonDetector';
 
 interface ARViewProps {
   drones?: DroneData[];
@@ -31,6 +32,7 @@ const ARView: React.FC<ARViewProps> = ({
   const hitDetectorRef = useRef<HitDetector>();
   const effectsRef = useRef<Set<SmokeEffect>>(new Set());
   const isDestroyedRef = useRef(false);
+  const personDetectorRef = useRef<PersonDetector>(); // Add this ref
   const { location } = useLocationContext();
 
   // MARK: - Cleanup handler
@@ -45,6 +47,12 @@ const ARView: React.FC<ARViewProps> = ({
     if (sceneManagerRef.current) {
       sceneManagerRef.current.cleanup();
       sceneManagerRef.current = undefined;
+    }
+
+    // Cleanup person detector
+    if (personDetectorRef.current) {
+      personDetectorRef.current.cleanup();
+      personDetectorRef.current = undefined;
     }
 
     hitDetectorRef.current = undefined;
@@ -86,6 +94,37 @@ const ARView: React.FC<ARViewProps> = ({
   const handleShoot = useCallback(() => {
     if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive()) return;
 
+    const handleShoot = useCallback(async () => {
+      if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive())
+        return;
+
+      // Check for persons before processing hit
+      const isPersonDetected = await personDetectorRef.current?.detectPerson();
+      console.log('Person detection result:', isPersonDetected);
+
+      hitDetectorRef.current.checkHit(
+        (droneId: string, hitPosition: THREE.Vector3, drone: THREE.Group) => {
+          if (onDroneShoot) {
+            onDroneShoot(droneId);
+            createSmokeEffect(hitPosition);
+          }
+        },
+        (geoObjectId: string, hitPosition: THREE.Vector3) => {
+          if (onGeoObjectHit) {
+            onGeoObjectHit(geoObjectId);
+            createSmokeEffect(hitPosition);
+          }
+        }
+      );
+
+      // Add player hit callback with person detection check
+      async (playerId: string, hitPosition: THREE.Vector3) => {
+        if (isPersonDetected) {
+          // Handle player hit
+          createSmokeEffect(hitPosition);
+        }
+      };
+    }, [onDroneShoot, onGeoObjectHit, createSmokeEffect]);
     hitDetectorRef.current.checkHit(
       (droneId: string, hitPosition: THREE.Vector3, drone: THREE.Group) => {
         if (onDroneShoot) {
@@ -116,6 +155,13 @@ const ARView: React.FC<ARViewProps> = ({
         sceneManager.getScene(),
         sceneManager.getCamera()
       );
+
+      // Initialize person detector
+      personDetectorRef.current = new PersonDetector();
+      // Enable debug in development mode
+      if (process.env.NODE_ENV === 'development') {
+        personDetectorRef.current.toggleDebug(true);
+      }
 
       // Start animation loop
       sceneManager.startAnimation();
