@@ -12,6 +12,7 @@ export class HitValidationService {
     this.playerValidator = new PlayerHitValidator(personDetector);
   }
 
+  // MARK: - validateHit
   async validateHit(
     shooter: LocationData,
     shooterHeading: number,

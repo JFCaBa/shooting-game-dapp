@@ -12,6 +12,7 @@ export class LocationService {
 
   private constructor() {}
 
+  // MARK: - getInstance
   public static getInstance(): LocationService {
     if (!LocationService.instance) {
       LocationService.instance = new LocationService();
@@ -19,6 +20,7 @@ export class LocationService {
     return LocationService.instance;
   }
 
+  // MARK: - validateHit
   validateHit(
     shooter: LocationData,
     target: LocationData,
@@ -28,6 +30,7 @@ export class LocationService {
     return distance <= maxRange;
   }
 
+  // MARK: - getCurrentLocation
   getCurrentLocation(): Promise<LocationData> {
     console.log('Fetching location');
     return new Promise((resolve, reject) => {

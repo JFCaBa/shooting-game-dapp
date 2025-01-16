@@ -9,6 +9,7 @@ export class PlayerHitValidator extends BaseHitValidator {
     super();
   }
 
+  // MARK: - validateHit
   async validateHit(
     shooter: LocationData,
     shooterHeading: number,

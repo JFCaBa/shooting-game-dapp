@@ -6,6 +6,7 @@ export class InventoryService {
 
   private constructor() {}
 
+  // MARK: - getInstance
   static getInstance(): InventoryService {
     if (!InventoryService.instance) {
       InventoryService.instance = new InventoryService();
@@ -13,6 +14,7 @@ export class InventoryService {
     return InventoryService.instance;
   }
 
+  // MARK: - fetchInventory
   async fetchInventory(playerId: string): Promise<InventoryItem[]> {
     try {
       const token = localStorage.getItem('token');
@@ -37,6 +39,7 @@ export class InventoryService {
     }
   }
 
+  // MARK: - useItem
   async useItem(playerId: string, itemId: string): Promise<InventoryItem> {
     try {
       const token = localStorage.getItem('token');
