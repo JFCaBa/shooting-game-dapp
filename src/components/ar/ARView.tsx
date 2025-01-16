@@ -11,6 +11,7 @@ import GeoObjectNode from './models/GeoObjectNode';
 import Camera from '../game/Camera';
 import { calculateDistance } from '../../utils/maths';
 import { PersonDetector } from '../../services/PersonDetector';
+import { soundService } from '../../services/SoundService';
 
 interface ARViewProps {
   drones?: DroneData[];
@@ -32,7 +33,7 @@ const ARView: React.FC<ARViewProps> = ({
   const hitDetectorRef = useRef<HitDetector>();
   const effectsRef = useRef<Set<SmokeEffect>>(new Set());
   const isDestroyedRef = useRef(false);
-  const personDetectorRef = useRef<PersonDetector>(); // Add this ref
+  const personDetectorRef = useRef<PersonDetector>();
   const { location } = useLocationContext();
 
   // MARK: - Cleanup handler
@@ -104,6 +105,7 @@ const ARView: React.FC<ARViewProps> = ({
         if (onDroneShoot) {
           onDroneShoot(droneId);
           createSmokeEffect(hitPosition);
+          soundService.playSound('explosion');
         }
       },
       (geoObjectId: string, hitPosition: THREE.Vector3) => {

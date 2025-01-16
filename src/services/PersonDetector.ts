@@ -1,4 +1,7 @@
 // src/services/PersonDetector.ts
+// src/services/PersonDetector.ts
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgl'; // Add this import
 import * as cocossd from '@tensorflow-models/coco-ssd';
 
 interface DetectionBox {
@@ -13,13 +16,38 @@ export class PersonDetector {
   private detector: cocossd.ObjectDetection | null = null;
   private videoElement: HTMLVideoElement | null = null;
   private debugOverlay: HTMLDivElement | null = null;
-  private isDebugging: boolean = true; // Toggle for debug visualization
+  private isDebugging: boolean = true;
 
   constructor() {
-    this.initializeDetector();
+    this.initializeTensorFlow().then(() => {
+      this.initializeDetector();
+    });
     this.findCameraElement();
     if (this.isDebugging) {
       this.createDebugOverlay();
+    }
+  }
+
+  private async initializeTensorFlow() {
+    try {
+      // Set the backend to WebGL and wait for it to initialize
+      await tf.setBackend('webgl');
+      await tf.ready();
+      console.log('TensorFlow.js initialized with backend:', tf.getBackend());
+    } catch (error) {
+      console.error('Failed to initialize TensorFlow.js:', error);
+    }
+  }
+
+  private async initializeDetector() {
+    try {
+      console.log('Loading COCO-SSD model...');
+      this.detector = await cocossd.load({
+        base: 'lite_mobilenet_v2', // Use a lighter model for better performance
+      });
+      console.log('Person detector initialized successfully');
+    } catch (error) {
+      console.error('Failed to load person detection model:', error);
     }
   }
 
@@ -70,15 +98,6 @@ export class PersonDetector {
       box.appendChild(label);
       this.debugOverlay.appendChild(box);
     });
-  }
-
-  private async initializeDetector() {
-    try {
-      this.detector = await cocossd.load();
-      console.log('Person detector initialized successfully');
-    } catch (error) {
-      console.error('Failed to load person detection model:', error);
-    }
   }
 
   private findCameraElement() {

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, memo } from 'react';
+import React, { useRef, memo } from 'react';
+import { soundService } from '../../services/SoundService';
 
 interface ShootButtonProps {
   isReloading: boolean;
@@ -9,21 +10,8 @@ interface ShootButtonProps {
 
 const ShootButton: React.FC<ShootButtonProps> = memo(
   ({ isReloading, isRecovering, currentAmmo, onShoot }) => {
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const lastShootTime = useRef<number>(0);
     const SHOOT_COOLDOWN = 500; // 500ms cooldown between shots
-
-    useEffect(() => {
-      audioRef.current = new Audio('/assets/shoot_sound.wav');
-      audioRef.current.load();
-
-      return () => {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current = null;
-        }
-      };
-    }, []);
 
     const handleShoot = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -46,18 +34,14 @@ const ShootButton: React.FC<ShootButtonProps> = memo(
 
       lastShootTime.current = now;
 
-      // First dispatch the gameShoot event
+      // Play shoot sound
+      soundService.playSound('shoot');
+
+      // Dispatch the gameShoot event
       const shootEvent = new CustomEvent('gameShoot', { bubbles: false });
       document.dispatchEvent(shootEvent);
 
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current
-          .play()
-          .catch((error) => console.error('Failed to play sound:', error));
-      }
-
-      // Then call the onShoot handler
+      // Call the onShoot handler
       onShoot();
     };
 
