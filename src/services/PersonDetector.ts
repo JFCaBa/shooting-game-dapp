@@ -1,5 +1,4 @@
 // src/services/PersonDetector.ts
-// src/services/PersonDetector.ts
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl'; // Add this import
 import * as cocossd from '@tensorflow-models/coco-ssd';
@@ -72,10 +71,14 @@ export class PersonDetector {
     const scaleX = window.innerWidth / this.videoElement.videoWidth;
     const scaleY = window.innerHeight / this.videoElement.videoHeight;
 
+    // Define crosshair position
+    const crosshairX = window.innerWidth / 2; // Center horizontally
+    const crosshairY = window.innerHeight * 0.33; // 33% from the top
+
     detections.forEach((detection) => {
       const box = document.createElement('div');
       box.style.position = 'absolute';
-      box.style.border = '2px solid #00ff00';
+      box.style.border = '2px solid #00ff00'; // Default to green
       box.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
 
       // Scale the detection coordinates to match screen size
@@ -97,6 +100,31 @@ export class PersonDetector {
 
       box.appendChild(label);
       this.debugOverlay.appendChild(box);
+
+      // Check if the crosshair is inside the detection box
+      const boxLeft = detection.x * scaleX;
+      const boxTop = detection.y * scaleY;
+      const boxRight = boxLeft + detection.width * scaleX;
+      const boxBottom = boxTop + detection.height * scaleY;
+
+      if (
+        crosshairX >= boxLeft &&
+        crosshairX <= boxRight &&
+        crosshairY >= boxTop &&
+        crosshairY <= boxBottom
+      ) {
+        console.log(
+          `Crosshair is inside the detection box of confidence: ${detection.confidence}`
+        );
+        // Change the box border color to red
+        box.style.borderColor = '#ff0000'; // Highlight the box
+        box.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+      }
+
+      // Schedule removal of the box after 1 second
+      setTimeout(() => {
+        box.remove();
+      }, 1000);
     });
   }
 
@@ -166,6 +194,40 @@ export class PersonDetector {
       return personFound;
     } catch (error) {
       console.error('Person detection failed:', error);
+      return false;
+    }
+  }
+
+  public async isPointInPersonBox(x: number, y: number): Promise<boolean> {
+    if (!this.detector) {
+      console.warn('Person detector not initialized');
+      return false;
+    }
+
+    const imageData = this.getCameraFeed();
+    if (!imageData) {
+      console.warn('No camera feed available');
+      return false;
+    }
+
+    try {
+      const predictions = await this.detector.detect(imageData);
+      return predictions.some((pred) => {
+        if (pred.class === 'person' && pred.score > 0.7) {
+          const [boxX, boxY, boxWidth, boxHeight] = pred.bbox;
+
+          // Check if the point is inside the bounding box
+          return (
+            x >= boxX &&
+            x <= boxX + boxWidth &&
+            y >= boxY &&
+            y <= boxY + boxHeight
+          );
+        }
+        return false;
+      });
+    } catch (error) {
+      console.error('Failed to validate point in person box:', error);
       return false;
     }
   }
