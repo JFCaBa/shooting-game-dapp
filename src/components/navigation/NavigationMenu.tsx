@@ -17,7 +17,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { currentAmmo, isReloading, isRecovering, shoot } = useGameContext();
-
   const locationManager = useLocationManager();
 
   const menuItems = [
@@ -30,6 +29,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   ];
 
   const handleShoot = () => {
+    // Only allow shooting in game screen
+    if (currentScreen !== 'game') {
+      console.log('Shooting blocked: Not in game screen');
+      return;
+    }
+
     const location = locationManager.getCurrentLocation();
     const heading = locationManager.getCurrentHeading();
     try {
@@ -66,6 +71,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         <ShootButton
           isReloading={isReloading}
           isRecovering={isRecovering}
+          isNotGameScreen={currentScreen != 'game'}
           currentAmmo={currentAmmo}
           onShoot={handleShoot}
         />

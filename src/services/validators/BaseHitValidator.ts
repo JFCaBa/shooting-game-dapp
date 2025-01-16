@@ -12,6 +12,7 @@ export abstract class BaseHitValidator {
   protected readonly MAX_ANGLE_ERROR = 30; // degrees
   protected readonly BASE_DAMAGE = 1;
 
+  // MARK: - calculateBaseValidation
   protected calculateBaseValidation(
     shooter: LocationData,
     shooterHeading: number,
@@ -64,6 +65,7 @@ export abstract class BaseHitValidator {
     };
   }
 
+  // MARK: - calculateDamage
   protected calculateDamage(distance: number): number {
     const damageFalloff = 1 - distance / this.MAX_RANGE;
     return Math.max(this.BASE_DAMAGE * damageFalloff, this.BASE_DAMAGE);

@@ -30,6 +30,7 @@ export class HitDetector {
     this.hitValidationService = new HitValidationService();
   }
 
+  // MARK: - checkHit
   public async checkHit(
     onDroneHit: DroneHitCallback,
     onGeoObjectHit: GeoObjectHitCallback,
@@ -67,6 +68,7 @@ export class HitDetector {
     }, 500);
   }
 
+  // MARK: - getTargetMeshes
   private getTargetMeshes(): THREE.Object3D[] {
     const targetMeshes: THREE.Object3D[] = [];
     const seenIds = new Set<string>();
@@ -98,6 +100,7 @@ export class HitDetector {
     return targetMeshes;
   }
 
+  // MARK: - getObjectLocation
   private getObjectLocation(object: THREE.Object3D): LocationData {
     const worldPosition = new THREE.Vector3();
     object.getWorldPosition(worldPosition);
@@ -110,6 +113,7 @@ export class HitDetector {
     };
   }
 
+  // MARK: - getCameraFeed
   private getCameraFeed(): ImageData | undefined {
     // Get camera feed from the video element if available
     const videoElement = document.querySelector('video');
@@ -125,6 +129,7 @@ export class HitDetector {
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
   }
 
+  // MARK: - processHit
   private async processHit(
     intersection: THREE.Intersection,
     callbacks: {

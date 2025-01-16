@@ -4,12 +4,13 @@ import { soundService } from '../../services/SoundService';
 interface ShootButtonProps {
   isReloading: boolean;
   isRecovering: boolean;
+  isNotGameScreen: boolean;
   currentAmmo: number;
   onShoot: () => void;
 }
 
 const ShootButton: React.FC<ShootButtonProps> = memo(
-  ({ isReloading, isRecovering, currentAmmo, onShoot }) => {
+  ({ isReloading, isRecovering, isNotGameScreen, currentAmmo, onShoot }) => {
     const lastShootTime = useRef<number>(0);
     const SHOOT_COOLDOWN = 500; // 500ms cooldown between shots
 
@@ -23,7 +24,7 @@ const ShootButton: React.FC<ShootButtonProps> = memo(
         return;
       }
 
-      if (isReloading || currentAmmo <= 0 || isRecovering) {
+      if (isReloading || currentAmmo <= 0 || isRecovering || isNotGameScreen) {
         console.log('Shot blocked:', {
           isReloading,
           currentAmmo,

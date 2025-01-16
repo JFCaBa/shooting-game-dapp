@@ -15,6 +15,7 @@ export class LocationStateManager {
     this.initializeGeolocation();
   }
 
+  // MARK: - getInstance
   public static getInstance(): LocationStateManager {
     if (!LocationStateManager.instance) {
       LocationStateManager.instance = new LocationStateManager();
@@ -22,6 +23,7 @@ export class LocationStateManager {
     return LocationStateManager.instance;
   }
 
+  // MARK: - initializeGeolocation
   private initializeGeolocation(): void {
     if (!navigator.geolocation) {
       console.error('Geolocation is not supported');
@@ -60,6 +62,7 @@ export class LocationStateManager {
     }
   }
 
+  // MARK: - handlePositionUpdate
   private handlePositionUpdate(position: GeolocationPosition): void {
     const newLocation: LocationData = {
       latitude: position.coords.latitude,
@@ -74,6 +77,7 @@ export class LocationStateManager {
     this.locationCallbacks.forEach((callback) => callback(newLocation));
   }
 
+  // MARK: - handleOrientation
   private handleOrientation(event: DeviceOrientationEvent): void {
     if (event.alpha !== null) {
       this.currentHeading = event.alpha;
@@ -81,18 +85,22 @@ export class LocationStateManager {
     }
   }
 
+  // MARK: - handleError
   private handleError(error: GeolocationPositionError): void {
     console.error('LocationStateManager: Error getting position:', error);
   }
 
+  // MARK: - getCurrentLocation
   public getCurrentLocation(): LocationData | null {
     return this.currentLocation;
   }
 
+  // MARK: - getCurrentHeading
   public getCurrentHeading(): number | null {
     return this.currentHeading;
   }
 
+  // MARK: - subscribeToLocation
   public subscribeToLocation(callback: LocationUpdateCallback): () => void {
     this.locationCallbacks.add(callback);
     // If we have a current location, immediately notify the new subscriber
@@ -102,6 +110,7 @@ export class LocationStateManager {
     return () => this.locationCallbacks.delete(callback);
   }
 
+  // MARK: - subscribeToHeading
   public subscribeToHeading(callback: HeadingUpdateCallback): () => void {
     this.headingCallbacks.add(callback);
     // If we have a current heading, immediately notify the new subscriber
@@ -111,6 +120,7 @@ export class LocationStateManager {
     return () => this.headingCallbacks.delete(callback);
   }
 
+  // MARK: - cleanup
   public cleanup(): void {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);

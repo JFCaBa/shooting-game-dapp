@@ -250,6 +250,12 @@ export class GameStateService {
   public updateGameScore(action: GameScoreAction): void {
     this.setState((prev) => {
       switch (action.type) {
+        case 'RESET_DRONES':
+          return {
+            ...prev,
+            droneCount: 0,
+          };
+
         case 'DRONE_HIT':
           const updatedDrones = prev.drones.filter(
             (drone) => drone.droneId !== action.droneId
