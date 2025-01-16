@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { firebaseService } from '../../services/FirebaseService';
+import { soundService } from '../../services/SoundService';
 
 interface DevicePermissionsHandlerProps {
   children: React.ReactNode;
@@ -74,6 +75,24 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
             console.error('Error requesting notification permission:', err);
           }
         }
+
+        // Initialize sound system
+        if (!soundService.isReady()) {
+          try {
+            // Create a temporary AudioContext to initialize the audio system
+            const AudioContext =
+              window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContext) {
+              const audioContext = new AudioContext();
+              if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+              }
+              console.log('Audio system initialized successfully');
+            }
+          } catch (err) {
+            console.error('Error initializing audio system:', err);
+          }
+        }
       } catch (error) {
         console.error('Error requesting permissions:', error);
       } finally {
@@ -81,9 +100,12 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
       }
     };
 
-    // Add click handler to request permissions
     const handleInitialUserInteraction = () => {
       requestPermissions();
+      // Play a silent sound to initialize the audio system
+      soundService.setVolume('entry', 0);
+      soundService.playSound('entry');
+      soundService.setVolume('entry', 1);
       document.removeEventListener('click', handleInitialUserInteraction);
     };
 
@@ -118,6 +140,7 @@ const DevicePermissionsHandler: React.FC<DevicePermissionsHandlerProps> = ({
           <p>• Location for player positioning</p>
           <p>• Motion sensors for AR controls</p>
           <p>• Notifications for game updates</p>
+          <p>• Sound for game effects</p>
         </div>
 
         {/* Privacy Policy and Terms & Conditions Links */}
