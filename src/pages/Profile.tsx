@@ -26,7 +26,7 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  });
 
   useEffect(() => {
     if (profile) {

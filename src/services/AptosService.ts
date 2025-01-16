@@ -1,12 +1,4 @@
-import {
-  Account,
-  Aptos,
-  AptosConfig,
-  Network,
-  Ed25519PrivateKey,
-  AccountAddress,
-  MoveResource,
-} from '@aptos-labs/ts-sdk';
+import { Account, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 // Instead of extending MoveResource, create our own interface
 interface CoinStoreResource {

@@ -1,4 +1,4 @@
-import { GameMessage, MessageType } from '../types/game';
+import { GameMessage } from '../types/game';
 
 type WebSocketCallback = (message: GameMessage) => void;
 

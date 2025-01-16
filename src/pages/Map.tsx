@@ -6,7 +6,6 @@ import { useGameContext } from '../context/GameContext';
 import { createRoot } from 'react-dom/client';
 import PlayerMarker from '../components/map/PlayerMarker';
 import GeoObjectMarker from '../components/map/GeoObjectMarker';
-import { MessageType } from '../types/game';
 import { LocationStateManager } from '../services/LocationStateManager';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAP_BOX;
@@ -41,26 +40,25 @@ const Map = () => {
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Create custom follow button control
     const followButton = document.createElement('button');
     followButton.className = 'mapboxgl-ctrl-icon follow-button';
     followButton.style.cssText = `
-      width: 20px;
-      height: 20px;
-      background: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 2px;
-      box-shadow: 0 0 0 2px rgba(0,0,0,.1);
-      cursor: pointer;
-      margin: 5px;
-    `;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 2px;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.1);
+    cursor: pointer;
+    margin: 5px;
+  `;
     followButton.innerHTML = `
-      <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-        <path fill="${isFollowingUser ? '#4CAF50' : '#666'}" 
-              d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
-      </svg>
-    `;
+    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+      <path fill="${isFollowingUser ? '#4CAF50' : '#666'}" 
+            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+    </svg>
+  `;
 
     const customControl = document.createElement('div');
     customControl.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
@@ -86,7 +84,6 @@ const Map = () => {
     map.on('dragstart', () => setIsFollowingUser(false));
     mapRef.current = map;
 
-    // Add current player marker
     if (location) {
       const markerElement = document.createElement('div');
       const root = createRoot(markerElement);
@@ -108,7 +105,6 @@ const Map = () => {
         .addTo(map);
     }
 
-    // Set up location updates
     const unsubscribeLocation = locationManager.subscribeToLocation(
       (newLocation) => {
         if (markerRefs.current['current']) {
@@ -120,16 +116,20 @@ const Map = () => {
       }
     );
 
+    // Copy the refs to local variables
+    const markerRefsSnapshot = markerRefs.current;
+    const geoObjectMarkerRefsSnapshot = geoObjectMarkerRefs.current;
+
     return () => {
-      Object.values(markerRefs.current).forEach((marker) => marker.remove());
-      Object.values(geoObjectMarkerRefs.current).forEach((marker) =>
+      Object.values(markerRefsSnapshot).forEach((marker) => marker.remove());
+      Object.values(geoObjectMarkerRefsSnapshot).forEach((marker) =>
         marker.remove()
       );
       unsubscribeLocation();
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  });
 
   // Update other players
   useEffect(() => {
@@ -169,7 +169,7 @@ const Map = () => {
         delete markerRefs.current[markerId];
       }
     });
-  }, [players]);
+  }, [players, playerId]);
 
   // Update GeoObjects
   useEffect(() => {

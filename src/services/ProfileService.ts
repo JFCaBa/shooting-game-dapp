@@ -69,7 +69,7 @@ export class ProfileService {
       }
 
       const data: ProfileResponse = await response.json();
-      return;
+      return data;
     } catch (error) {
       console.error('Error updating details:', error);
       throw error;
@@ -107,7 +107,7 @@ export class ProfileService {
       }
 
       const data: ProfileResponse = await response.json();
-      return;
+      return data;
     } catch (error) {
       console.error('Error updating password:', error);
       throw error;
