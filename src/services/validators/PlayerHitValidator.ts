@@ -25,12 +25,19 @@ export class PlayerHitValidator extends BaseHitValidator {
       return baseValidation;
     }
 
-    // Additional player-specific validation
-    const isPersonDetected = await this.personDetector.detectPerson();
+    // Calculate crosshair position
+    const crosshairX = window.innerWidth / 2; // Center horizontally
+    const crosshairY = window.innerHeight * 0.33; // 33% from the top
+
+    // Check if the crosshair is inside any person box
+    const isHitValid = await this.personDetector.isPointInPersonBox(
+      crosshairX,
+      crosshairY
+    );
 
     return {
       ...baseValidation,
-      isValid: baseValidation.isValid && isPersonDetected,
+      isValid: baseValidation.isValid && isHitValid,
     };
   }
 }
