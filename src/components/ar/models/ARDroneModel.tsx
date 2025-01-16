@@ -16,10 +16,8 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
   onHit,
   modelUrl,
   scene,
-  camera,
 }) => {
   const modelRef = useRef<THREE.Group>();
-  const boundingBoxesRef = useRef(new Map());
   const isDestroyedRef = useRef(false);
   const mixers = useMemo(() => [] as THREE.AnimationMixer[], []);
   const animationFrameRef = useRef<number>();

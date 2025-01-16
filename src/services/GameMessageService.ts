@@ -97,10 +97,12 @@ export class GameMessageService {
       return;
     }
 
-    const hitValidation = this.hitValidationService.validateHit(
+    // Now just pass the target type, let HitValidationService handle camera feed internally
+    const hitValidation = await this.hitValidationService.validateHit(
       shootData.location,
       shootData.heading || 0,
-      currentLocation
+      currentLocation,
+      'player' // specify target type
     );
 
     const type = hitValidation.isValid
@@ -121,8 +123,6 @@ export class GameMessageService {
         kind: 'shoot',
       },
     };
-
-    // MARK: - sendMessage
 
     this.sendMessage(shootMessage);
     if (hitValidation.isValid) {

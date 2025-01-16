@@ -1,76 +1,35 @@
 // src/services/HitValidationService.ts
-// Validates hit detection and damage calculations
-
 import { LocationData } from '../types/game';
-import { calculateDistance, calculateBearing, toRadians } from '../utils/maths';
-
-interface HitValidation {
-  isValid: boolean;
-  damage: number;
-  distance: number;
-  deviation: number;
-}
+import { HitValidation } from '../types/validation';
+import { PlayerHitValidator } from './validators/PlayerHitValidator';
+import { PersonDetector } from './PersonDetector';
 
 export class HitValidationService {
-  private readonly MAX_RANGE = 500; // meters
-  private readonly MAX_ANGLE_ERROR = 30; // degrees
-  private readonly BASE_DAMAGE = 1;
+  private playerValidator: PlayerHitValidator;
 
-  validateHit(
-    shooter: LocationData,
-    shooterHeading: number,
-    target: LocationData
-  ): HitValidation {
-    if (!target) {
-      return {
-        isValid: false,
-        damage: 0,
-        distance: 0,
-        deviation: 0,
-      };
-    }
-
-    const distance = calculateDistance(shooter, target);
-
-    // Check if target is in range
-    if (distance > this.MAX_RANGE) {
-      return {
-        isValid: false,
-        damage: 0,
-        distance,
-        deviation: 0,
-      };
-    }
-
-    // Calculate actual bearing to target
-    const actualBearing = calculateBearing(shooter, target);
-
-    // Calculate angle difference
-    let angleDiff = Math.abs(shooterHeading - actualBearing);
-    if (angleDiff > 180) {
-      angleDiff = 360 - angleDiff;
-    }
-
-    // Calculate deviation in meters
-    const deviation = distance * Math.tan(toRadians(angleDiff));
-
-    // Validate hit based on angle difference
-    const isValid = angleDiff <= this.MAX_ANGLE_ERROR;
-
-    // Calculate damage based on distance (closer = more damage)
-    const damage = isValid ? this.calculateDamage(distance) : 0;
-
-    return {
-      isValid,
-      damage,
-      distance,
-      deviation,
-    };
+  constructor() {
+    const personDetector = new PersonDetector();
+    this.playerValidator = new PlayerHitValidator(personDetector);
   }
 
-  private calculateDamage(distance: number): number {
-    // Damage decreases linearly with distance
-    const damageFalloff = 1 - distance / this.MAX_RANGE;
-    return Math.max(this.BASE_DAMAGE * damageFalloff, this.BASE_DAMAGE);
+  async validateHit(
+    shooter: LocationData,
+    shooterHeading: number,
+    target: LocationData,
+    targetType: 'player' | 'drone' | 'geoObject' = 'player',
+    cameraFeed?: ImageData
+  ): Promise<HitValidation> {
+    // For backward compatibility, default to player validation
+    if (targetType === 'player') {
+      return this.playerValidator.validateHit(
+        shooter,
+        shooterHeading,
+        target,
+        cameraFeed
+      );
+    }
+
+    // For other types, just use the base validation for now
+    return this.playerValidator.validateHit(shooter, shooterHeading, target);
   }
 }
