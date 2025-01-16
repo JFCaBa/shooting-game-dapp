@@ -91,40 +91,14 @@ const ARView: React.FC<ARViewProps> = ({
   }, []);
 
   // MARK: - Handle shooting
-  const handleShoot = useCallback(() => {
+
+  const handleShoot = useCallback(async () => {
     if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive()) return;
 
-    const handleShoot = useCallback(async () => {
-      if (!hitDetectorRef.current || !sceneManagerRef.current?.isActive())
-        return;
+    // Check for persons before processing hit
+    const isPersonDetected = await personDetectorRef.current?.detectPerson();
+    console.log('Person detection result:', isPersonDetected);
 
-      // Check for persons before processing hit
-      const isPersonDetected = await personDetectorRef.current?.detectPerson();
-      console.log('Person detection result:', isPersonDetected);
-
-      hitDetectorRef.current.checkHit(
-        (droneId: string, hitPosition: THREE.Vector3, drone: THREE.Group) => {
-          if (onDroneShoot) {
-            onDroneShoot(droneId);
-            createSmokeEffect(hitPosition);
-          }
-        },
-        (geoObjectId: string, hitPosition: THREE.Vector3) => {
-          if (onGeoObjectHit) {
-            onGeoObjectHit(geoObjectId);
-            createSmokeEffect(hitPosition);
-          }
-        }
-      );
-
-      // Add player hit callback with person detection check
-      async (playerId: string, hitPosition: THREE.Vector3) => {
-        if (isPersonDetected) {
-          // Handle player hit
-          createSmokeEffect(hitPosition);
-        }
-      };
-    }, [onDroneShoot, onGeoObjectHit, createSmokeEffect]);
     hitDetectorRef.current.checkHit(
       (droneId: string, hitPosition: THREE.Vector3, drone: THREE.Group) => {
         if (onDroneShoot) {
