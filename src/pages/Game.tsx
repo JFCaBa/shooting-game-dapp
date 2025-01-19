@@ -31,33 +31,6 @@ export const Game = React.memo(() => {
   const { isConnected, send } = useWebSocket();
   const arViewRef = useRef<{ cleanup: () => void }>();
 
-  // Cleanup on component unmount
-  useEffect(() => {
-    return () => {
-      // Reset drone count in game status
-      updateGameScore({
-        type: 'RESET_DRONES',
-      });
-
-      // Clean up AR View
-      if (arViewRef.current?.cleanup) {
-        arViewRef.current.cleanup();
-      }
-
-      // Remove the drones from the server
-      let timeoutId: NodeJS.Timeout;
-      if (playerId && drones.length > 0) {
-        timeoutId = setTimeout(() => {
-          send({
-            type: MessageType.REMOVE_DRONES,
-            playerId: playerId,
-            data: {},
-          });
-        }, 1000);
-      }
-    };
-  }, [playerId, send, updateGameScore, drones.length]);
-
   const handleDroneHit = useCallback(
     (droneId: string) => {
       if (!playerId) return;
