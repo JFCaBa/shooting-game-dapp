@@ -5,7 +5,7 @@ import { calculateDistance, calculateBearing } from '../../utils/maths';
 
 const Radar = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { location, heading } = useLocationContext();
+  const { location } = useLocationContext();
   const { geoObjects } = useGameContext();
 
   const RADAR_RANGE = 500; // meters
@@ -29,10 +29,7 @@ const Radar = () => {
     centerY: number,
     radius: number
   ) => {
-    if (!location) {
-      // console.log('Radar: Missing location or heading', { location, heading });
-      return;
-    }
+    if (!location) return;
 
     geoObjects.forEach((object) => {
       const objectLocation = {
@@ -45,32 +42,45 @@ const Radar = () => {
       const distance = calculateDistance(location, objectLocation);
       if (distance <= RADAR_RANGE) {
         const bearing = calculateBearing(location, objectLocation);
-        const relativeAngle =
-          (((heading - bearing + 360) % 360) * Math.PI) / 180;
+        const angle = (bearing * Math.PI) / 180;
         const normalizedDistance = distance / RADAR_RANGE;
 
-        const x =
-          centerX + Math.sin(relativeAngle) * (radius * normalizedDistance);
-        const y =
-          centerY - Math.cos(relativeAngle) * (radius * normalizedDistance);
+        const x = centerX + Math.sin(angle) * (radius * normalizedDistance);
+        const y = centerY - Math.cos(angle) * (radius * normalizedDistance);
 
         // Draw object dot with type-based color
         ctx.fillStyle = getObjectColor(object.type);
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, Math.PI * 2);
         ctx.fill();
-
-        // Debug info
-        // console.log(`Drawing object ${object.id}:`, {
-        //   distance,
-        //   bearing,
-        //   relativeAngle: (relativeAngle * 180) / Math.PI,
-        //   normalizedDistance,
-        //   position: { x, y },
-        //   location: objectLocation,
-        // });
       }
     });
+  };
+
+  const drawNorthArrow = (
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    maxRadius: number
+  ) => {
+    // Draw arrow pointing up
+    ctx.save();
+    ctx.strokeStyle = '#00ff00'; // Bright green
+    ctx.fillStyle = '#00ff00';
+    ctx.lineWidth = 2;
+
+    const arrowSize = maxRadius * 0.3; // Arrow size relative to radar
+    const arrowTop = maxRadius * 0.1; // Position above radar
+
+    // Draw arrow
+    ctx.beginPath();
+    ctx.moveTo(centerX, arrowTop); // Arrow tip
+    ctx.lineTo(centerX - arrowSize / 2, arrowTop + arrowSize); // Left corner
+    ctx.lineTo(centerX + arrowSize / 2, arrowTop + arrowSize); // Right corner
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
   };
 
   useEffect(() => {
@@ -80,61 +90,43 @@ const Radar = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const drawRadar = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const maxRadius = canvas.width / 2;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const maxRadius = canvas.width / 2 - 4;
 
-      // Background
-      ctx.fillStyle = 'rgba(0, 32, 0, 0.9)';
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw North arrow first
+    drawNorthArrow(ctx, centerX, maxRadius);
+
+    // Background circle
+    ctx.fillStyle = 'rgba(0, 32, 0, 0.9)';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Grid circles
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      const radius = maxRadius * (i / 4);
       ctx.beginPath();
-      ctx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Grid circles
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-      ctx.lineWidth = 1;
-      for (let i = 1; i <= 4; i++) {
-        const radius = maxRadius * (i / 4);
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      // Cross lines
-      ctx.beginPath();
-      ctx.moveTo(0, centerY);
-      ctx.lineTo(canvas.width, centerY);
-      ctx.moveTo(centerX, 0);
-      ctx.lineTo(centerX, canvas.height);
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
       ctx.stroke();
+    }
 
-      // Geo objects
-      drawGeoObjects(ctx, centerX, centerY, maxRadius);
+    // Cross lines
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(canvas.width, centerY);
+    ctx.moveTo(centerX, 0);
+    ctx.lineTo(centerX, canvas.height);
+    ctx.stroke();
 
-      // Scan line
-      const time = Date.now() / 4000;
-      const angle = (time * Math.PI * 2) % (Math.PI * 2);
-
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.lineTo(
-        centerX + Math.cos(angle) * maxRadius,
-        centerY + Math.sin(angle) * maxRadius
-      );
-      ctx.stroke();
-    };
-
-    const animate = () => {
-      drawRadar();
-      requestAnimationFrame(animate);
-    };
-
-    animate();
-  }, [location, heading, geoObjects]);
+    // Geo objects
+    drawGeoObjects(ctx, centerX, centerY, maxRadius);
+  }, [location, geoObjects]);
 
   return (
     <canvas
