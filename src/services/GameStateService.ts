@@ -1,3 +1,5 @@
+// src/services/GameStateService.ts
+
 import { GameState } from '../types/gameContext';
 import {
   GameMessage,
@@ -6,6 +8,7 @@ import {
   ShootData,
 } from '../types/game';
 import { RELOAD_TIME } from '../types/gameContext';
+import { hardcodedAdService } from './HardcodedAdService';
 
 // MARK: - Type Definitions
 type SendMessageFn = (message: GameMessage) => void;
@@ -76,25 +79,34 @@ export class GameStateService {
 
   // MARK: - handleAdReward
   public handleAdReward(playerId: string): void {
-    this.setState((prev) => {
-      switch (prev.showAdModal) {
-        case 'ammo':
-          this.performReload(playerId);
-          return {
-            ...prev,
-            showAdModal: null,
-          };
+    hardcodedAdService.showAd(
+      // On complete
+      () => {
+        this.setState((prev) => {
+          switch (prev.showAdModal) {
+            case 'ammo':
+              this.performReload(playerId);
+              return {
+                ...prev,
+                showAdModal: null,
+              };
 
-        case 'lives':
-          this.performRecover(playerId);
-          return {
-            ...prev,
-            showAdModal: null,
-          };
-        default:
-          return prev;
+            case 'lives':
+              this.performRecover(playerId);
+              return {
+                ...prev,
+                showAdModal: null,
+              };
+            default:
+              return prev;
+          }
+        });
+      },
+      // On skip
+      () => {
+        this.closeAdModal(playerId);
       }
-    });
+    );
   }
 
   // MARK: - closeAdModal
@@ -186,7 +198,6 @@ export class GameStateService {
   }
 
   // MARK: - sendKillMessage
-
   private sendKillMessage(targetPlayerId: string, playerId: string): void {
     const killMessage: GameMessage = {
       type: MessageType.KILL,
@@ -200,7 +211,6 @@ export class GameStateService {
   }
 
   // MARK: - handleHit
-
   public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
       if (prev.isRecovering) return prev;
