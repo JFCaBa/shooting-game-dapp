@@ -7,6 +7,7 @@ import { AchievementsProvider } from './context/AchievementsContext';
 import { WalletProvider } from './context/WalletContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { InventoryProvider } from './context/InventoryContext';
+import { CameraProvider } from './context/CameraContext';
 import GameLayout from './layouts/GameLayout';
 import CreateUser from './pages/CreateUser';
 import Login from './pages/Login';
@@ -40,14 +41,16 @@ const App = () => {
               <GameProvider>
                 <InventoryProvider>
                   <AchievementsProvider>
-                    <DevicePermissionsHandler>
-                      <Routes>
-                        <Route path="/create-user" element={<CreateUser />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/*" element={<GameLayout />} />
-                      </Routes>
-                    </DevicePermissionsHandler>
+                    <CameraProvider>
+                      <DevicePermissionsHandler>
+                        <Routes>
+                          <Route path="/create-user" element={<CreateUser />} />
+                          <Route path="/login" element={<Login />} />
+                          <Route path="/profile" element={<Profile />} />
+                          <Route path="/*" element={<GameLayout />} />
+                        </Routes>
+                      </DevicePermissionsHandler>
+                    </CameraProvider>
                   </AchievementsProvider>
                 </InventoryProvider>
               </GameProvider>
