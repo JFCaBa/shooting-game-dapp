@@ -85,14 +85,14 @@ export class GameStateService {
         this.setState((prev) => {
           switch (prev.showAdModal) {
             case 'ammo':
-              this.performReload(playerId);
+              this.sendReloadRequest(playerId);
               return {
                 ...prev,
                 showAdModal: null,
               };
 
             case 'lives':
-              this.performRecover(playerId);
+              this.sendRecoverRequest(playerId);
               return {
                 ...prev,
                 showAdModal: null,

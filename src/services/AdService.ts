@@ -187,32 +187,8 @@ export class AdService {
     image.onmouseout = () => (image.style.transform = 'scale(1)');
     image.onclick = () => window.open(ad.targetUrl, '_blank');
 
-    const skipButton = document.createElement('button');
-    skipButton.textContent = 'Skip Ad';
-    skipButton.style.cssText = `
-      margin-top: 1rem;
-      padding: 0.5rem 1.5rem;
-      background-color: #E5E7EB;
-      border-radius: 0.5rem;
-      font-weight: 500;
-      color: #1F2937;
-      transition: background-color 0.2s;
-    `;
-    skipButton.onmouseover = () =>
-      (skipButton.style.backgroundColor = '#D1D5DB');
-    skipButton.onmouseout = () =>
-      (skipButton.style.backgroundColor = '#E5E7EB');
-    skipButton.onclick = () => {
-      if (this.adContainer) {
-        document.body.removeChild(this.adContainer);
-        this.adContainer = null;
-      }
-      onComplete(false);
-    };
-
     modal.appendChild(countdown);
     modal.appendChild(image);
-    modal.appendChild(skipButton);
 
     if (this.adContainer) {
       this.adContainer.innerHTML = '';
