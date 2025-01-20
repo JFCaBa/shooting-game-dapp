@@ -27,6 +27,7 @@ export interface GameContextType extends GameState {
   setGeoObjects: (objects: GeoObject[]) => void;
   shoot: (location: LocationData, heading: number) => void;
   reload: () => void;
+  recover: () => void;
   startGame: () => void;
   endGame: () => void;
   updateGameScore: (action: GameScoreAction) => void;

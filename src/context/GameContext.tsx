@@ -21,13 +21,16 @@ import {
 import { useWebSocketService } from '../hooks/useWebSocketService';
 
 // MARK: - Context Creation
+
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 // MARK: - GameProvider Component
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   // MARK: - State Management
+
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [geoObjects, setGeoObjects] = useState<GeoObject[]>([]);
   const { location } = useLocationContext();
@@ -42,15 +45,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   // MARK: - WebSocket Integration
+
   const { isConnected, addMessageListener, send } = useWebSocketService(
     state.playerId
   );
 
   // MARK: - Service References
+
   const gameMessageServiceRef = useRef<GameMessageService | null>(null);
   const gameStateServiceRef = useRef<GameStateService | null>(null);
 
   // MARK: - Service and Listener Initialization
+
   useEffect(() => {
     if (!state.playerId) return;
 
@@ -104,6 +110,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isConnected, addMessageListener]);
 
   // MARK: - Game Actions
+
   const shoot = useCallback(
     (location: LocationData, heading: number) =>
       gameStateServiceRef.current?.shoot(state.playerId!, location, heading),
@@ -112,6 +119,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const reload = useCallback(
     () => gameStateServiceRef.current?.performReload(state.playerId!),
+    [state.playerId]
+  );
+
+  const recover = useCallback(
+    () => gameStateServiceRef.current?.performRecover(state.playerId!),
     [state.playerId]
   );
 
@@ -131,12 +143,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // MARK: - Context Value
+
   const contextValue: GameContextType = {
     ...state,
     geoObjects,
     setGeoObjects,
     shoot,
     reload,
+    recover,
     startGame: () => setState((prev) => ({ ...prev, isGameStarted: true })),
     endGame: () => setState((prev) => ({ ...prev, isGameStarted: false })),
     updateGameScore,
@@ -150,6 +164,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 // MARK: - Hook Export
+
 export const useGameContext = () => {
   const context = useContext(GameContext);
   if (!context) {

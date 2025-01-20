@@ -11,10 +11,12 @@ import { RELOAD_TIME } from '../types/gameContext';
 import { hardcodedAdService } from './HardcodedAdService';
 
 // MARK: - Type Definitions
+
 type SendMessageFn = (message: GameMessage) => void;
 
 export class GameStateService {
   // MARK: - Properties
+
   private isShooting: boolean = false;
   private sendMessage: SendMessageFn;
   private setState: (
@@ -22,6 +24,7 @@ export class GameStateService {
   ) => void;
 
   // MARK: - Constructor
+
   constructor(
     sendMessage: SendMessageFn,
     setState: (state: GameState | ((prevState: GameState) => GameState)) => void
@@ -32,6 +35,7 @@ export class GameStateService {
   }
 
   // MARK: - sendReloadRequest
+
   public sendReloadRequest(playerId: string): void {
     const reloadMessage: GameMessage = {
       type: MessageType.RELOAD,
@@ -41,6 +45,7 @@ export class GameStateService {
   }
 
   // MARK: - sendRecoverRequest
+
   public sendRecoverRequest(playerId: string): void {
     const recoverMessage: GameMessage = {
       type: MessageType.RECOVER,
@@ -50,6 +55,7 @@ export class GameStateService {
   }
 
   // MARK: - performReload
+
   public performReload(playerId: string): void {
     this.setState((prev) => {
       if (prev.isReloading) {
@@ -64,6 +70,7 @@ export class GameStateService {
   }
 
   // MARK: - performRecover
+
   public performRecover(playerId: string): void {
     this.setState((prev) => {
       if (prev.isRecovering) {
@@ -78,38 +85,38 @@ export class GameStateService {
   }
 
   // MARK: - handleAdReward
-  public handleAdReward(playerId: string): void {
-    hardcodedAdService.showAd(
-      // On complete
-      () => {
-        this.setState((prev) => {
-          switch (prev.showAdModal) {
-            case 'ammo':
-              this.sendReloadRequest(playerId);
-              return {
-                ...prev,
-                showAdModal: null,
-              };
 
-            case 'lives':
-              this.sendRecoverRequest(playerId);
-              return {
-                ...prev,
-                showAdModal: null,
-              };
-            default:
-              return prev;
-          }
-        });
-      },
-      // On skip
-      () => {
-        this.closeAdModal(playerId);
+  public handleAdReward(playerId: string): void {
+    this.setState((prev) => {
+      switch (prev.showAdModal) {
+        case 'ammo':
+          this.sendReloadRequest(playerId);
+          return {
+            ...prev,
+            showAdModal: null,
+            isReloading: false,
+          };
+
+        case 'lives':
+          this.sendRecoverRequest(playerId);
+          return {
+            ...prev,
+            showAdModal: null,
+            isRecovering: false,
+          };
+        default:
+          return {
+            ...prev,
+            showAdModal: null,
+            isRecovering: false,
+            isReloading: false,
+          };
       }
-    );
+    });
   }
 
   // MARK: - closeAdModal
+
   public closeAdModal(playerId: string): void {
     this.setState((prev) => {
       if (prev.showAdModal === 'ammo') {
@@ -140,6 +147,7 @@ export class GameStateService {
   }
 
   // MARK: - shoot
+
   public shoot(
     playerId: string,
     location: LocationData,
@@ -198,6 +206,7 @@ export class GameStateService {
   }
 
   // MARK: - sendKillMessage
+
   private sendKillMessage(targetPlayerId: string, playerId: string): void {
     const killMessage: GameMessage = {
       type: MessageType.KILL,
@@ -211,6 +220,7 @@ export class GameStateService {
   }
 
   // MARK: - handleHit
+
   public handleHit(damage: number, shooterPlayerId?: string): void {
     this.setState((prev) => {
       if (prev.isRecovering) return prev;
@@ -244,6 +254,7 @@ export class GameStateService {
   }
 
   // MARK: - resetDroneTimer
+
   public resetDroneTimer(): void {
     this.setState((prev) => {
       if (prev.droneTimer) {
@@ -257,6 +268,7 @@ export class GameStateService {
   }
 
   // MARK: - updateGameScore
+
   public updateGameScore(action: GameScoreAction): void {
     this.setState((prev) => {
       switch (action.type) {
