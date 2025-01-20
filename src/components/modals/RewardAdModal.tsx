@@ -14,8 +14,9 @@ const RewardAdModal = ({ type, onClose, onReward }: RewardAdModalProps) => {
     if (success) {
       console.log('Ad completed successfully');
       onReward();
+    } else {
+      onClose();
     }
-    onClose();
   };
 
   const handleNoThanks = () => {

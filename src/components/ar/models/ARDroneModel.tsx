@@ -52,7 +52,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         [0, Math.PI * 2]
       );
 
-      const clip = new THREE.AnimationClip(`rotor_spin_${rotor.name}`, 0.3, [
+      const clip = new THREE.AnimationClip(`rotor_spin_${rotor.name}`, 0.15, [
         track,
       ]);
       const action = rotorMixer.clipAction(clip);
@@ -154,7 +154,7 @@ const ARDroneModel: React.FC<ARDroneModelProps> = ({
         });
 
         // Bounding box setup
-        const boundingBoxGeometry = new THREE.BoxGeometry(35, 15, 25);
+        const boundingBoxGeometry = new THREE.BoxGeometry(10, 5, 10);
         const boundingBoxMaterial = new THREE.MeshBasicMaterial({
           color: 0xff0000,
           opacity: 0.2,

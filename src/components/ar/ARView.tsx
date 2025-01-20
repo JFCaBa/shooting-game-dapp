@@ -233,7 +233,7 @@ const ARView = forwardRef<{ cleanup: () => void }, ARViewProps>(
                   key={drone.droneId}
                   drone={drone}
                   onHit={onDroneShoot}
-                  modelUrl="/models/drone_four_rotor_one.glb"
+                  modelUrl="/models/drone_four_rotor_two.glb"
                   scene={sceneManagerRef.current.getScene()}
                   camera={sceneManagerRef.current.getCamera()}
                 />
