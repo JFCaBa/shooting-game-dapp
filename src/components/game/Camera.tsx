@@ -1,54 +1,37 @@
 import React, { useEffect, useRef } from 'react';
+import { useCamera } from '../../context/CameraContext';
 
 const Camera = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const { stream, isLoadingCameras, cameraError } = useCamera();
 
   useEffect(() => {
-    let isMounted = true;
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
 
-    const startCamera = async () => {
-      try {
-        // Only request camera if we don't already have a stream
-        if (!streamRef.current) {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: 'environment',
-              width: { ideal: window.innerWidth },
-              height: { ideal: window.innerHeight },
-            },
-          });
+  if (cameraError) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black">
+        <div className="text-white text-center p-4">
+          <p className="text-red-500 mb-2">Camera Error</p>
+          <p>{cameraError}</p>
+        </div>
+      </div>
+    );
+  }
 
-          // Check if component is still mounted before updating
-          if (isMounted && videoRef.current && !videoRef.current.srcObject) {
-            videoRef.current.srcObject = stream;
-            streamRef.current = stream;
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error('Error accessing camera:', err);
-        }
-      }
-    };
-
-    startCamera();
-
-    // Cleanup function
-    return () => {
-      isMounted = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
-        streamRef.current = null;
-      }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-    };
-  }, []); // Empty dependency array since we only want this to run once
+  if (isLoadingCameras || !stream) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white mx-auto mb-2"></div>
+          <p>Initializing camera...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <video
@@ -60,4 +43,4 @@ const Camera = () => {
   );
 };
 
-export default React.memo(Camera); // Use memo to prevent unnecessary re-renders
+export default React.memo(Camera);
