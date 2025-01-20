@@ -13,7 +13,6 @@ const RewardAdModal = ({ type, onClose, onReward }: RewardAdModalProps) => {
     const success = await adService.showRewardedAd();
     if (success) {
       console.log('Ad completed successfully');
-      onClose();
       onReward();
     }
     onClose();
