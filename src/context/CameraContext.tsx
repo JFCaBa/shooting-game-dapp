@@ -7,6 +7,12 @@ interface VideoDevice {
   facingMode?: string;
 }
 
+interface Resolution {
+  width: number;
+  height: number;
+  label: string;
+}
+
 interface CameraContextType {
   selectedCameraId: string | null;
   setSelectedCameraId: (id: string) => void;
@@ -15,17 +21,28 @@ interface CameraContextType {
   isLoadingCameras: boolean;
   cameraError: string | null;
   refreshCameras: () => Promise<void>;
+  currentResolution: Resolution | null;
+  setResolution: (resolution: Resolution) => Promise<void>;
 }
 
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
 
 let camerasCache: VideoDevice[] | null = null;
 
+const DEFAULT_RESOLUTION: Resolution = {
+  width: 1280,
+  height: 720,
+  label: 'HD (1280×720)',
+};
+
 export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(
     localStorage.getItem('selectedCameraId')
+  );
+  const [currentResolution, setCurrentResolution] = useState<Resolution | null>(
+    null
   );
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [availableCameras, setAvailableCameras] = useState<VideoDevice[]>(
@@ -34,7 +51,10 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoadingCameras, setIsLoadingCameras] = useState(!camerasCache);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  const startCameraStream = async (deviceId: string | null = null) => {
+  const startCameraStream = async (
+    deviceId: string | null = null,
+    resolution: Resolution = DEFAULT_RESOLUTION
+  ) => {
     try {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
@@ -44,20 +64,21 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         ? {
             video: {
               deviceId: { exact: deviceId },
-              width: { ideal: window.innerWidth },
-              height: { ideal: window.innerHeight },
+              width: { ideal: resolution.width },
+              height: { ideal: resolution.height },
             },
           }
         : {
             video: {
               facingMode: 'environment',
-              width: { ideal: window.innerWidth },
-              height: { ideal: window.innerHeight },
+              width: { ideal: resolution.width },
+              height: { ideal: resolution.height },
             },
           };
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(newStream);
+      setCurrentResolution(resolution);
       return newStream;
     } catch (error) {
       console.error('Error starting camera stream:', error);
@@ -65,9 +86,13 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!deviceId) {
         try {
           const anyStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: {
+              width: { ideal: resolution.width },
+              height: { ideal: resolution.height },
+            },
           });
           setStream(anyStream);
+          setCurrentResolution(resolution);
           return anyStream;
         } catch (fallbackError) {
           console.error('Fallback camera error:', fallbackError);
@@ -76,6 +101,15 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
       throw error;
+    }
+  };
+
+  const setResolution = async (resolution: Resolution) => {
+    try {
+      await startCameraStream(selectedCameraId, resolution);
+    } catch (error) {
+      console.error('Error setting resolution:', error);
+      setCameraError('Failed to set camera resolution');
     }
   };
 
@@ -110,11 +144,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         setSelectedCameraId(newCameraId);
         localStorage.setItem('selectedCameraId', newCameraId);
 
-        // If we got a stream with the environment camera, keep it
-        // Otherwise, start a new stream with the selected camera
-        if (!backCamera) {
-          await startCameraStream(newCameraId);
-        }
+        // Start stream with default resolution
+        await startCameraStream(newCameraId, DEFAULT_RESOLUTION);
       }
 
       setIsLoadingCameras(false);
@@ -155,7 +186,10 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   // Handle camera selection changes
   useEffect(() => {
     if (selectedCameraId) {
-      startCameraStream(selectedCameraId).catch(console.error);
+      startCameraStream(
+        selectedCameraId,
+        currentResolution || DEFAULT_RESOLUTION
+      ).catch(console.error);
     }
   }, [selectedCameraId]);
 
@@ -169,6 +203,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         isLoadingCameras,
         cameraError,
         refreshCameras,
+        currentResolution,
+        setResolution,
       }}
     >
       {children}

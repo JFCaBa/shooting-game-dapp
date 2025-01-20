@@ -1,0 +1,481 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 574fb10..4987a1a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -7,6 +7,7 @@ import { AchievementsProvider } from './context/AchievementsContext';
+ import { WalletProvider } from './context/WalletContext';
+ import { NotificationProvider } from './context/NotificationContext';
+ import { InventoryProvider } from './context/InventoryContext';
++import { CameraProvider } from './context/CameraContext';
+ import GameLayout from './layouts/GameLayout';
+ import CreateUser from './pages/CreateUser';
+ import Login from './pages/Login';
+@@ -40,14 +41,16 @@ const App = () => {
+               <GameProvider>
+                 <InventoryProvider>
+                   <AchievementsProvider>
+-                    <DevicePermissionsHandler>
+-                      <Routes>
+-                        <Route path="/create-user" element={<CreateUser />} />
+-                        <Route path="/login" element={<Login />} />
+-                        <Route path="/profile" element={<Profile />} />
+-                        <Route path="/*" element={<GameLayout />} />
+-                      </Routes>
+-                    </DevicePermissionsHandler>
++                    <CameraProvider>
++                      <DevicePermissionsHandler>
++                        <Routes>
++                          <Route path="/create-user" element={<CreateUser />} />
++                          <Route path="/login" element={<Login />} />
++                          <Route path="/profile" element={<Profile />} />
++                          <Route path="/*" element={<GameLayout />} />
++                        </Routes>
++                      </DevicePermissionsHandler>
++                    </CameraProvider>
+                   </AchievementsProvider>
+                 </InventoryProvider>
+               </GameProvider>
+diff --git a/src/components/ar/scene/ARSceneManager.ts b/src/components/ar/scene/ARSceneManager.ts
+index bed54c8..34d6597 100644
+--- a/src/components/ar/scene/ARSceneManager.ts
++++ b/src/components/ar/scene/ARSceneManager.ts
+@@ -24,10 +24,11 @@ export class ARSceneManager {
+       50,
+       window.innerWidth / window.innerHeight,
+       0.1,
+-      1000
++      2000
+     );
+     camera.position.set(0, 1.6, 0);
+     camera.rotation.set(0, 0, 0);
++    camera.updateProjectionMatrix();
+     return camera;
+   }
+ 
+diff --git a/src/components/game/Camera.tsx b/src/components/game/Camera.tsx
+index 71620fc..0d37558 100644
+--- a/src/components/game/Camera.tsx
++++ b/src/components/game/Camera.tsx
+@@ -1,54 +1,37 @@
+ import React, { useEffect, useRef } from 'react';
++import { useCamera } from '../../context/CameraContext';
+ 
+ const Camera = () => {
+   const videoRef = useRef<HTMLVideoElement>(null);
+-  const streamRef = useRef<MediaStream | null>(null);
++  const { stream, isLoadingCameras, cameraError } = useCamera();
+ 
+   useEffect(() => {
+-    let isMounted = true;
+-
+-    const startCamera = async () => {
+-      try {
+-        // Only request camera if we don't already have a stream
+-        if (!streamRef.current) {
+-          const stream = await navigator.mediaDevices.getUserMedia({
+-            video: {
+-              facingMode: 'environment',
+-              width: { ideal: window.innerWidth },
+-              height: { ideal: window.innerHeight },
+-            },
+-          });
+-
+-          // Check if component is still mounted before updating
+-          if (isMounted && videoRef.current && !videoRef.current.srcObject) {
+-            videoRef.current.srcObject = stream;
+-            streamRef.current = stream;
+-          }
+-        }
+-      } catch (err) {
+-        if (isMounted) {
+-          console.error('Error accessing camera:', err);
+-        }
+-      }
+-    };
+-
+-    startCamera();
+-
+-    // Cleanup function
+-    return () => {
+-      isMounted = false;
+-      if (streamRef.current) {
+-        streamRef.current.getTracks().forEach((track) => {
+-          track.stop();
+-        });
+-        streamRef.current = null;
+-      }
+-
+-      if (videoRef.current) {
+-        videoRef.current.srcObject = null;
+-      }
+-    };
+-  }, []); // Empty dependency array since we only want this to run once
++    if (videoRef.current && stream) {
++      videoRef.current.srcObject = stream;
++    }
++  }, [stream]);
++
++  if (cameraError) {
++    return (
++      <div className="absolute inset-0 flex items-center justify-center bg-black">
++        <div className="text-white text-center p-4">
++          <p className="text-red-500 mb-2">Camera Error</p>
++          <p>{cameraError}</p>
++        </div>
++      </div>
++    );
++  }
++
++  if (isLoadingCameras || !stream) {
++    return (
++      <div className="absolute inset-0 flex items-center justify-center bg-black">
++        <div className="text-white text-center">
++          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white mx-auto mb-2"></div>
++          <p>Initializing camera...</p>
++        </div>
++      </div>
++    );
++  }
+ 
+   return (
+     <video
+@@ -60,4 +43,4 @@ const Camera = () => {
+   );
+ };
+ 
+-export default React.memo(Camera); // Use memo to prevent unnecessary re-renders
++export default React.memo(Camera);
+diff --git a/src/components/settings/CameraSettings.tsx b/src/components/settings/CameraSettings.tsx
+new file mode 100644
+index 0000000..5c2ed6a
+--- /dev/null
++++ b/src/components/settings/CameraSettings.tsx
+@@ -0,0 +1,65 @@
++import React from 'react';
++import { Settings, RefreshCw } from 'lucide-react';
++import { useCamera } from '../../context/CameraContext';
++
++const CameraSettings: React.FC = () => {
++  const {
++    selectedCameraId,
++    setSelectedCameraId,
++    availableCameras,
++    isLoadingCameras,
++    cameraError,
++    refreshCameras,
++  } = useCamera();
++
++  return (
++    <div className="space-y-4">
++      <div className="flex items-center justify-between mb-2">
++        <div className="flex items-center space-x-2">
++          <Settings className="w-5 h-5 text-gray-400" />
++          <h3 className="text-lg font-medium text-white">Camera Settings</h3>
++        </div>
++        <button
++          onClick={() => refreshCameras()}
++          className="p-2 text-gray-400 hover:text-white transition-colors"
++          disabled={isLoadingCameras}
++        >
++          <RefreshCw
++            className={`w-5 h-5 ${isLoadingCameras ? 'animate-spin' : ''}`}
++          />
++        </button>
++      </div>
++
++      {isLoadingCameras ? (
++        <div className="text-gray-400">Loading cameras...</div>
++      ) : cameraError ? (
++        <div className="text-red-500">{cameraError}</div>
++      ) : availableCameras.length === 0 ? (
++        <div className="text-gray-400">No cameras found</div>
++      ) : (
++        <div className="space-y-2">
++          {availableCameras.map((device) => (
++            <button
++              key={device.deviceId}
++              onClick={() => setSelectedCameraId(device.deviceId)}
++              className={`w-full p-3 rounded-lg text-left transition-colors ${
++                selectedCameraId === device.deviceId
++                  ? 'bg-game-primary text-white'
++                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
++              }`}
++            >
++              <div className="font-medium">{device.label}</div>
++              <div className="text-sm opacity-75">
++                {device.facingMode === 'environment'
++                  ? 'Back Camera'
++                  : 'Front Camera'}
++              </div>
++            </button>
++          ))}
++        </div>
++      )}
++    </div>
++  );
++};
++
++export default CameraSettings;
+diff --git a/src/context/CameraContext.tsx b/src/context/CameraContext.tsx
+new file mode 100644
+index 0000000..d36979e
+--- /dev/null
++++ b/src/context/CameraContext.tsx
+@@ -0,0 +1,185 @@
++import React, { createContext, useContext, useState, useEffect } from 'react';
++
++interface VideoDevice {
++  deviceId: string;
++  label: string;
++  kind: string;
++  facingMode?: string;
++}
++
++interface CameraContextType {
++  selectedCameraId: string | null;
++  setSelectedCameraId: (id: string) => void;
++  stream: MediaStream | null;
++  availableCameras: VideoDevice[];
++  isLoadingCameras: boolean;
++  cameraError: string | null;
++  refreshCameras: () => Promise<void>;
++}
++
++const CameraContext = createContext<CameraContextType | undefined>(undefined);
++
++let camerasCache: VideoDevice[] | null = null;
++
++export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
++  children,
++}) => {
++  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(
++    localStorage.getItem('selectedCameraId')
++  );
++  const [stream, setStream] = useState<MediaStream | null>(null);
++  const [availableCameras, setAvailableCameras] = useState<VideoDevice[]>(
++    camerasCache || []
++  );
++  const [isLoadingCameras, setIsLoadingCameras] = useState(!camerasCache);
++  const [cameraError, setCameraError] = useState<string | null>(null);
++
++  const startCameraStream = async (deviceId: string | null = null) => {
++    try {
++      if (stream) {
++        stream.getTracks().forEach((track) => track.stop());
++      }
++
++      const constraints = deviceId
++        ? {
++            video: {
++              deviceId: { exact: deviceId },
++              width: { ideal: window.innerWidth },
++              height: { ideal: window.innerHeight },
++            },
++          }
++        : {
++            video: {
++              facingMode: 'environment',
++              width: { ideal: window.innerWidth },
++              height: { ideal: window.innerHeight },
++            },
++          };
++
++      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
++      setStream(newStream);
++      return newStream;
++    } catch (error) {
++      console.error('Error starting camera stream:', error);
++      // If environment camera fails, try any camera
++      if (!deviceId) {
++        try {
++          const anyStream = await navigator.mediaDevices.getUserMedia({
++            video: true,
++          });
++          setStream(anyStream);
++          return anyStream;
++        } catch (fallbackError) {
++          console.error('Fallback camera error:', fallbackError);
++          setCameraError('Failed to initialize any camera');
++          throw fallbackError;
++        }
++      }
++      throw error;
++    }
++  };
++
++  const initializeCameras = async () => {
++    try {
++      setIsLoadingCameras(true);
++      setCameraError(null);
++
++      const devices = await navigator.mediaDevices.enumerateDevices();
++      const videoDevices = devices
++        .filter((device) => device.kind === 'videoinput')
++        .map((device) => ({
++          deviceId: device.deviceId,
++          label: device.label || `Camera ${devices.indexOf(device) + 1}`,
++          kind: device.kind,
++          facingMode: device.label.toLowerCase().includes('back')
++            ? 'environment'
++            : 'user',
++        }));
++
++      camerasCache = videoDevices;
++      setAvailableCameras(videoDevices);
++
++      // If we don't have a selected camera, choose one
++      if (!selectedCameraId && videoDevices.length > 0) {
++        const backCamera = videoDevices.find(
++          (device) => device.facingMode === 'environment'
++        );
++        const newCameraId = backCamera
++          ? backCamera.deviceId
++          : videoDevices[0].deviceId;
++        setSelectedCameraId(newCameraId);
++        localStorage.setItem('selectedCameraId', newCameraId);
++
++        // If we got a stream with the environment camera, keep it
++        // Otherwise, start a new stream with the selected camera
++        if (!backCamera) {
++          await startCameraStream(newCameraId);
++        }
++      }
++
++      setIsLoadingCameras(false);
++    } catch (error) {
++      console.error('Error initializing cameras:', error);
++      setCameraError('Failed to initialize cameras');
++      setIsLoadingCameras(false);
++    }
++  };
++
++  const refreshCameras = async () => {
++    camerasCache = null;
++    await initializeCameras();
++  };
++
++  // Initialize cameras on mount
++  useEffect(() => {
++    initializeCameras();
++
++    const handleDeviceChange = () => {
++      console.log('Devices changed, refreshing cameras...');
++      refreshCameras();
++    };
++
++    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
++
++    return () => {
++      navigator.mediaDevices.removeEventListener(
++        'devicechange',
++        handleDeviceChange
++      );
++      if (stream) {
++        stream.getTracks().forEach((track) => track.stop());
++      }
++    };
++  }, []);
++
++  // Handle camera selection changes
++  useEffect(() => {
++    if (selectedCameraId) {
++      startCameraStream(selectedCameraId).catch(console.error);
++    }
++  }, [selectedCameraId]);
++
++  return (
++    <CameraContext.Provider
++      value={{
++        selectedCameraId,
++        setSelectedCameraId,
++        stream,
++        availableCameras,
++        isLoadingCameras,
++        cameraError,
++        refreshCameras,
++      }}
++    >
++      {children}
++    </CameraContext.Provider>
++  );
++};
++
++export const useCamera = () => {
++  const context = useContext(CameraContext);
++  if (!context) {
++    throw new Error('useCamera must be used within a CameraProvider');
++  }
++  return context;
++};
+diff --git a/src/pages/Settings.tsx b/src/pages/Settings.tsx
+index 9e79897..a81eade 100644
+--- a/src/pages/Settings.tsx
++++ b/src/pages/Settings.tsx
+@@ -1,8 +1,13 @@
+ import React from 'react';
+ import { useNavigate } from 'react-router-dom';
+ import { ChevronRight } from 'lucide-react';
++import CameraSettings from '../components/settings/CameraSettings';
+ 
+-const Settings = ({ onSignOut }) => {
++interface SettingsProps {
++  onSignOut: () => void;
++}
++
++const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
+   const navigate = useNavigate();
+   const isAuthenticated = !!localStorage.getItem('token');
+ 
+@@ -12,29 +17,31 @@ const Settings = ({ onSignOut }) => {
+       <div className="flex mb-6">
+         <h1 className="text-2xl font-semibold flex-1">Settings</h1>
+       </div>
+-
+       {/* Settings Options */}
+       <div className="space-y-6">
+-        {/* User Section - Conditionally render based on auth status */}
+-        <div>
+-          <button
+-            onClick={() =>
+-              navigate(isAuthenticated ? '/profile' : '/create-user')
+-            }
+-            className="w-full bg-gray-800 rounded-lg p-4 flex items-center justify-between"
+-          >
+-            <div>
+-              <h2 className="text-lg font-medium mb-1">
+-                {isAuthenticated ? 'User Profile' : 'Create user'}
+-              </h2>
+-            </div>
+-            <ChevronRight className="text-gray-400" />
+-          </button>
+-          {!isAuthenticated && (
+-            <p className="text-gray-400 text-sm mt-2 px-1">
+-              Create a user for extra add-ons and better experience in the game.
+-            </p>
+-          )}
++        {/* User Section */}
++        <button
++          onClick={() =>
++            navigate(isAuthenticated ? '/profile' : '/create-user')
++          }
++          className="w-full bg-gray-800 rounded-lg p-4 flex items-center justify-between"
++        >
++          <div>
++            <h2 className="text-lg font-medium mb-1">
++              {isAuthenticated ? 'User Profile' : 'Create user'}
++            </h2>
++          </div>
++          <ChevronRight className="text-gray-400" />
++        </button>
++        {!isAuthenticated && (
++          <p className="text-gray-400 text-sm mt-2 px-1">
++            Create a user for extra add-ons and better experience in the game.
++          </p>
++        )}
++
++        {/* Camera Settings */}
++        <div className="bg-gray-800 rounded-lg p-4">
++          <CameraSettings />
+         </div>
+ 
+         {/* Show Sign Out only when authenticated */}
