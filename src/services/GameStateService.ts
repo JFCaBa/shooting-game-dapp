@@ -8,7 +8,7 @@ import {
   ShootData,
 } from '../types/game';
 import { RELOAD_TIME } from '../types/gameContext';
-import { hardcodedAdService } from './HardcodedAdService';
+import bulletService from './BulletService';
 
 // MARK: - Type Definitions
 
@@ -166,12 +166,16 @@ export class GameStateService {
         return prev;
       }
 
-      const newAmmo = Math.max(0, prev.currentAmmo - 1);
-      if (newAmmo === 0) {
-        console.log('🚫 No ammo left, showing ad modal');
+      if (!bulletService.canShoot()) {
+        console.log('🚫 Shot blocked by bullet service');
+        return prev;
+      }
+
+      const bulletId = bulletService.consumeBullet();
+      if (!bulletId) {
+        console.log('🚫 No bullets available, showing ad modal');
         return {
           ...prev,
-          currentAmmo: newAmmo,
           showAdModal: 'ammo',
         };
       }
@@ -181,10 +185,12 @@ export class GameStateService {
 
       const shootData: ShootData = {
         playerId: playerId,
+        bulletId: bulletId,
         location,
         heading,
         damage: 1,
         distance: 0,
+        timestamp: new Date().toISOString(),
       };
 
       // Send shoot message
@@ -194,13 +200,15 @@ export class GameStateService {
         data: shootData,
       });
 
+      bulletService.markBulletAsUsed(bulletId);
+
       setTimeout(() => {
         this.isShooting = false;
       }, 500);
 
       return {
         ...prev,
-        currentAmmo: newAmmo,
+        currentAmmo: bulletService.getAvailableBulletCount(),
       };
     });
   }

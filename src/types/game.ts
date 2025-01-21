@@ -1,4 +1,5 @@
 // src/types/game.ts
+import { Bullet, BulletType, BulletReloadStatus } from './bullet';
 export type LocationData = {
   latitude: number;
   longitude: number;
@@ -14,6 +15,8 @@ export type Player = {
 
 export type ShootData = {
   playerId?: string;
+  bulletId?: string;
+  bulletType?: BulletType;
   shotId?: string;
   hitPlayerId?: string;
   damage: number;
@@ -21,6 +24,7 @@ export type ShootData = {
   deviation?: number;
   heading: number;
   location?: LocationData;
+  timestamp?: string;
 };
 
 export type DroneData = {
@@ -91,6 +95,9 @@ export type GameMessageData = {
   damage?: number;
   distance?: number;
   deviation?: number;
+  availableBullets?: Bullet[];
+  bulletId?: string;
+  reloadStatus?: BulletReloadStatus;
 };
 
 export type GameMessage = {

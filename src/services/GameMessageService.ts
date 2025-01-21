@@ -11,6 +11,7 @@ import { HitValidationService } from './HitValidationService';
 import { LocationStateManager } from './LocationStateManager';
 import { GameState } from '../types/gameContext';
 import { PlayerStats } from '../types/player';
+import bulletService from './BulletService';
 
 // MARK: - Type Definitions
 type SendMessageFn = (message: GameMessage) => void;
@@ -186,6 +187,12 @@ export class GameMessageService {
           this.hasJoined = true;
           console.log('[GameMessageService] Updating stats: ', message.data);
           const stats = message.data as PlayerStats;
+
+          // Update bullet store with available bullets from server
+          if (message.data.availableBullets) {
+            bulletService.setBullets(message.data.availableBullets);
+          }
+
           this.setState((prev) => ({
             ...prev,
             currentAmmo: stats.currentAmmo ?? prev.currentAmmo,
